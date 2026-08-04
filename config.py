@@ -1,14 +1,14 @@
 # [EDIT FIRST] Catalog and schema where the workshop creates tables, functions,
 # volumes, and registers Genie/agents. The instructor sets these to their workspace.
-catalog = "your_catalog"
-schema = dbName = db = "your_schema"
+catalog = "alexxx"
+schema = dbName = db = "era_research"
 # Example (Brandon's FEVM working values):
 # catalog = "serverless_stable_lsryzn_catalog"
 # schema = dbName = db = "brandon_cowen"
 table = "parsed_data"
 volume_name = "raw_documents"
 base_url = "https://github.com/databricks-industry-solutions/agent-bricks-fins-mag7"
-sa_name = "Supervisor_Agent_Mag7"
+sa_name = "Supervisor_Agent_ERA"
 
 # Chatbot App Configuration
 app_name = "agent-bricks-chatbot"
