@@ -1,2 +1,13 @@
 
 .databricks
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Local MLflow tracking store created by era/tests. Per-machine state, not
+# project code - the donor repo committed one of these by accident.
+mlflow.db
+mlruns/
