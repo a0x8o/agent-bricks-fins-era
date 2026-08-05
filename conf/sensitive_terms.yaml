@@ -1,0 +1,40 @@
+# ERA egress policy - SENSITIVE TERMS
+#
+# Literal strings that must never leave the boundary in an outbound query, beyond
+# what the structural detectors in era/tools/redaction.py already catch (emails,
+# tokens, card numbers and so on).
+#
+# WHY a literal list is needed at all: the structural detectors find things that
+# *look* like secrets. They cannot know that "Project Northstar" is an unannounced
+# acquisition codename, because nothing about that string is structurally special.
+# Only the organisation knows. This file is where that knowledge lives.
+#
+# Matching is case-insensitive and whole-word, so "atlas" here does not redact
+# "atlassian". Add the specific form you mean.
+#
+# THIS FILE IS NOT A SECRET STORE. Everything here is written to git, so list terms
+# that are sensitive *in an outbound web query*, not credentials. Credentials belong
+# in a Databricks secret scope and are caught structurally regardless.
+
+version: 1
+
+# Unannounced initiatives, deal codenames, internal programme names. Searching the
+# open web for one of these tells the provider the codename exists and that someone
+# at this company is researching it.
+codenames:
+  - Project Northstar
+  - Project Halyard
+  - Blue Harbor
+
+# Internal system, table and dataset names that would leak schema topology.
+internal_systems:
+  - era_research
+  - graphrag_vertices
+  - graphrag_edges
+
+# Counterparties under NDA or in live negotiation. A search naming one of these
+# alongside the company is itself a disclosure.
+restricted_entities: []
+
+# Personnel whose names should not appear in outbound research queries.
+restricted_people: []

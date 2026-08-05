@@ -1,0 +1,63 @@
+# ERA egress policy - ALLOWLIST
+#
+# Domains considered authoritative for enterprise financial research. When a call
+# runs in allow-mode these are passed to You.com as `include_domains` so the
+# filtering happens at the provider, before results are ever returned.
+#
+# WHY push the list to the provider instead of filtering the response: a domain we
+# never wanted still costs a crawl and still lands in the response payload (and
+# therefore in logs and traces) if we filter locally. Filtering at the source keeps
+# it out of our boundary entirely.
+#
+# CONSTRAINT (verified against the You.com Search API): `include_domains` and
+# `exclude_domains` are MUTUALLY EXCLUSIVE - one request cannot carry both. That is
+# why routing_policy.yaml selects a single mode per call rather than sending both.
+# `include_domains` is also capped in practice; keep this list focused rather than
+# exhaustive.
+
+version: 1
+
+# Primary-source regulatory and exchange filings.
+regulatory:
+  - sec.gov
+  - investor.gov
+  - federalreserve.gov
+  - ecb.europa.eu
+  - bankofengland.co.uk
+  - esma.europa.eu
+  - fca.org.uk
+  - bis.org
+  - imf.org
+  - worldbank.org
+
+# Established financial press. Included for market colour and event confirmation,
+# never as a substitute for a filing when one exists.
+financial_press:
+  - reuters.com
+  - bloomberg.com
+  - wsj.com
+  - ft.com
+  - cnbc.com
+  - barrons.com
+  - marketwatch.com
+  - economist.com
+
+# Market data and company reference.
+market_data:
+  - nasdaq.com
+  - nyse.com
+  - spglobal.com
+  - moodys.com
+  - fitchratings.com
+  - morningstar.com
+
+# Company-operated investor relations. Kept separate because these are
+# self-reported: authoritative for what a company SAYS, not for whether it is true.
+investor_relations:
+  - investor.nvidia.com          # NVDA
+  - abc.xyz                      # GOOGL (Alphabet IR)
+  - investor.apple.com           # AAPL
+  - microsoft.com                # MSFT (IR lives under /investor)
+  - ir.tesla.com                 # TSLA
+  - investor.atmeta.com          # META
+  - ir.aboutamazon.com           # AMZN

@@ -1,0 +1,51 @@
+# ERA egress policy - DENYLIST
+#
+# Domains never acceptable as a source for a research answer. Applied as
+# `exclude_domains` on You.com Search when a call runs in deny-mode (the default,
+# broad-discovery posture).
+#
+# WHY a denylist exists at all when there is an allowlist: allow-mode is too narrow
+# for genuine discovery - "what is the market saying about X" needs the open web.
+# Deny-mode keeps that breadth while removing the categories that are actively
+# harmful in a financial-research context.
+#
+# CONSTRAINT: mutually exclusive with `include_domains` on a single request. See
+# routing_policy.yaml for how the mode is chosen.
+
+version: 1
+
+# Content farms and SEO-generated financial "news" - high volume, low provenance,
+# frequently unattributed restatements of a press release.
+low_provenance:
+  - zacks.com
+  - fool.com
+  - benzinga.com
+  - investorplace.com
+  - simplywall.st
+  - stocktwits.com
+
+# User-generated and promotional venues. Excluded because a claim sourced here
+# cannot be tagged external-cited with any integrity - there is no editorial chain.
+user_generated:
+  - reddit.com
+  - x.com
+  - twitter.com
+  - facebook.com
+  - quora.com
+  - medium.com
+  - substack.com
+  - seekingalpha.com
+
+# Aggregators that republish without adding sourcing. Their presence in a citation
+# list creates the appearance of corroboration from what is really a single origin.
+aggregators:
+  - news.google.com
+  - finance.yahoo.com
+  - msn.com
+  - newsbreak.com
+
+# Known paywall-only hosts where the crawler reliably retrieves a stub rather than
+# the article. Excluded to avoid citing text we never actually saw.
+paywall_stub:
+  - insider.com
+  - businessinsider.com

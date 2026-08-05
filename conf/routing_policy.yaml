@@ -1,0 +1,110 @@
+# ERA egress policy - ROUTING
+#
+# Decides, per outbound call: which You.com endpoint, which domain mode, and
+# whether the call is permitted to leave at all.
+#
+# All facts below were verified against the live You.com API reference on
+# 2026-08-03. Re-verify before changing them; several are non-obvious.
+
+version: 1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Endpoint inventory
+#
+# NOTE: the base URL is SPLIT across two hosts. This is not a typo and it is the
+# reason ERA provisions two Unity Catalog connections rather than one.
+# ─────────────────────────────────────────────────────────────────────────────
+endpoints:
+  search:
+    connection: you_search_http
+    host: https://ydc-index.io
+    path: /v1/search
+    method: GET
+    tier: fast              # sub-second to low-seconds; safe inside a turn
+    zdr_covered: true       # the ONLY endpoint You.com covers with ZDR today
+    returns_news: true      # news is a SECTION of this response, not a separate API
+
+  contents:
+    connection: you_search_http
+    host: https://ydc-index.io
+    path: /v1/contents
+    method: POST
+    tier: fast
+    zdr_covered: false
+
+  research:
+    connection: you_research_http
+    host: https://api.you.com
+    path: /v1/research
+    method: POST
+    tier: slow              # p50 300s, tail to 12000s - MUST NOT block a turn
+    zdr_covered: false
+    supports_background: true    # background:true -> {task_id, status, stream_url}
+    poll_path: /v1/research/{task_id}
+
+  finance_research:
+    connection: you_research_http
+    host: https://api.you.com
+    path: /v1/finance_research
+    method: POST
+    tier: slow
+    zdr_covered: false
+    # WHY no async here: the Finance Research reference documents only `input` and
+    # `research_effort`. There is no `background` flag, so You.com will not hand us
+    # a task_id. ERA must therefore drive its own worker + checkpoint resume for
+    # this endpoint rather than polling a provider-side task.
+    supports_background: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Zero Data Retention posture
+#
+# ZDR is NOT a request parameter. It is an account-level term on the You.com
+# enterprise agreement, applied server-side, and per their docs it "cannot be
+# switched off or subverted on a per-request basis". It currently covers
+# /v1/search ONLY.
+#
+# Consequence: Research / Finance Research / Contents payloads are NOT covered.
+# A research `input` may be up to 40,000 characters of business question, which is
+# the most sensitive thing ERA sends anywhere. The gate therefore refuses to route
+# high-sensitivity queries to non-ZDR endpoints until the agreement is extended.
+# ─────────────────────────────────────────────────────────────────────────────
+zero_data_retention:
+  account_enabled: false        # set true ONLY after You.com confirms in writing
+  confirmed_by: null            # e.g. "account team, ticket ABC-123, 2026-09-01"
+  refuse_non_zdr_above_sensitivity: internal   # public | internal | confidential
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Domain filtering mode
+#
+# CONSTRAINT: You.com Search rejects a request carrying both `include_domains` and
+# `exclude_domains` - they are mutually exclusive. Exactly one mode per call.
+# ─────────────────────────────────────────────────────────────────────────────
+domain_mode:
+  default: deny                 # broad discovery minus the denylist
+  # Escalate to allow-mode when the answer will be quoted as fact. Narrow, but every
+  # returned source is then one we already trust.
+  allow_when:
+    - query_class: regulatory_fact
+    - query_class: filing_lookup
+    - sensitivity: confidential
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Effort and cost tiers for the Research API.
+# `frontier` REQUIRES background:true - a synchronous frontier request returns 422.
+# ─────────────────────────────────────────────────────────────────────────────
+research_effort:
+  default: standard
+  allowed: [lite, standard, deep, exhaustive, frontier]
+  requires_background: [frontier]
+  # Guard against a single question quietly costing a fortune.
+  max_effort_without_approval: deep
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Freshness defaults, by question class.
+# Accepted values: day | week | month | year | YYYY-MM-DDtoYYYY-MM-DD
+# ─────────────────────────────────────────────────────────────────────────────
+freshness:
+  market_moving: day
+  earnings_context: week
+  competitive_landscape: month
+  default: null                 # unset = no recency filter

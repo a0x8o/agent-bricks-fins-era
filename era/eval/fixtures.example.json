@@ -1,0 +1,132 @@
+{
+  "int-001": {
+    "answer": "The filings support this position [IV:alexxx.era_research.parsed_data].\nThe comparison that follows is my own reading [INF].\n",
+    "evidence": {
+      "internal_lineage": [
+        "alexxx.era_research.parsed_data"
+      ],
+      "external_urls": []
+    }
+  },
+  "int-002": {
+    "answer": "The filings support this position [IV:ticker_data].\nThe comparison that follows is my own reading [INF].\n",
+    "evidence": {
+      "internal_lineage": [
+        "ticker_data"
+      ],
+      "external_urls": []
+    }
+  },
+  "int-003": {
+    "answer": "The filings support this position [IV:alexxx.era_research.parsed_data].\nThe comparison that follows is my own reading [INF].\n",
+    "evidence": {
+      "internal_lineage": [
+        "alexxx.era_research.parsed_data"
+      ],
+      "external_urls": []
+    }
+  },
+  "int-004": {
+    "answer": "The filings support this position [IV:alexxx.era_research.parsed_data].\nThe comparison that follows is my own reading [INF].\n",
+    "evidence": {
+      "internal_lineage": [
+        "alexxx.era_research.parsed_data"
+      ],
+      "external_urls": []
+    }
+  },
+  "ext-001": {
+    "answer": "Recent coverage reports a material move [EC:1].\nThe direction is consistent with prior quarters [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
+    "evidence": {
+      "internal_lineage": [],
+      "external_urls": [
+        "https://reuters.com/a"
+      ]
+    }
+  },
+  "ext-002": {
+    "answer": "Recent coverage reports a material move [EC:1].\nThe direction is consistent with prior quarters [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
+    "evidence": {
+      "internal_lineage": [],
+      "external_urls": [
+        "https://reuters.com/a"
+      ]
+    }
+  },
+  "ext-003": {
+    "answer": "Recent coverage reports a material move [EC:1].\nThe direction is consistent with prior quarters [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
+    "evidence": {
+      "internal_lineage": [],
+      "external_urls": [
+        "https://reuters.com/a"
+      ]
+    }
+  },
+  "bld-001": {
+    "answer": "Reported revenue was $47.5B [IV:alexxx.era_research.parsed_data].\nCoverage described guidance as conservative [EC:1].\nTogether these suggest supply is the constraint [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
+    "evidence": {
+      "internal_lineage": [
+        "alexxx.era_research.parsed_data"
+      ],
+      "external_urls": [
+        "https://reuters.com/a"
+      ]
+    }
+  },
+  "bld-002": {
+    "answer": "Reported revenue was $47.5B [IV:ticker_data].\nCoverage described guidance as conservative [EC:1].\nTogether these suggest supply is the constraint [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
+    "evidence": {
+      "internal_lineage": [
+        "ticker_data"
+      ],
+      "external_urls": [
+        "https://reuters.com/a"
+      ]
+    }
+  },
+  "bld-003": {
+    "answer": "Reported revenue was $47.5B [IV:alexxx.era_research.parsed_data].\nCoverage described guidance as conservative [EC:1].\nTogether these suggest supply is the constraint [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
+    "evidence": {
+      "internal_lineage": [
+        "alexxx.era_research.parsed_data"
+      ],
+      "external_urls": [
+        "https://reuters.com/a"
+      ]
+    }
+  },
+  "bld-004": {
+    "answer": "Reported revenue was $47.5B [IV:alexxx.era_research.parsed_data].\nCoverage described guidance as conservative [EC:1].\nTogether these suggest supply is the constraint [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
+    "evidence": {
+      "internal_lineage": [
+        "alexxx.era_research.parsed_data"
+      ],
+      "external_urls": [
+        "https://reuters.com/a"
+      ]
+    }
+  },
+  "gov-001": {
+    "answer": "That request was blocked by policy before any external search was made [OPS].\nI cannot answer it from outside sources [OPS].\n",
+    "evidence": {
+      "internal_lineage": [],
+      "external_urls": []
+    }
+  },
+  "gov-002": {
+    "answer": "That request was blocked by policy before any external search was made [OPS].\nI cannot answer it from outside sources [OPS].\n",
+    "evidence": {
+      "internal_lineage": [],
+      "external_urls": []
+    }
+  },
+  "gov-003": {
+    "answer": "Recent coverage reports a material move [EC:1].\nThe direction is consistent with prior quarters [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
+    "evidence": {
+      "internal_lineage": [],
+      "external_urls": [
+        "https://reuters.com/a"
+      ]
+    }
+  }
+}
