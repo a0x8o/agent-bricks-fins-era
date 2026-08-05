@@ -213,6 +213,14 @@ not possible to call the function in a way that sends both.
 All verified against the live API reference on 2026-08-03. Re-verify before changing
 any of them.
 
+- **The two hosts bill from SEPARATE pools.** This is the one that will waste an
+  afternoon. `GET /v1/billing/account_balance` lives on `api.you.com` and reports the
+  Research/Finance credit pool. `ydc-index.io` (Search, Contents) is billed
+  independently. Verified live on 2026-08-05: balance reported **$200.00**, Research
+  returned **200**, Search and Contents both returned **402 "prepaid credit balance
+  has been depleted"** — simultaneously. Topping up the balance you can see will not
+  fix a 402 on Search; you have to buy Search API capacity specifically. Treat the
+  balance endpoint as a diagnostic for the slow tier only.
 - **The base URL is split.** `ydc-index.io` serves `/v1/search` and `/v1/contents`;
   `api.you.com` serves `/v1/research`, `/v1/research/{task_id}` and
   `/v1/finance_research`. One connection cannot cover both — hence two.

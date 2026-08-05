@@ -28,7 +28,7 @@ def _fn_agent(name: str, func: str) -> dict:
     return {
         "name": name,
         "description": "x",
-        "agent_type": "function",
+        "agent_type": "unity-catalog-function",
         "unity_catalog_function": {"uc_path": {"catalog": CATALOG, "schema": SCHEMA, "name": func}},
     }
 
@@ -37,9 +37,9 @@ def _fn_agent(name: str, func: str) -> dict:
 def baseline() -> list[dict]:
     """A supervisor as Milestone A leaves it: KA + Genie + chart + the 03b tools."""
     return [
-        {"name": "Financial_Documents_Assistant", "agent_type": "ka",
+        {"name": "Financial_Documents_Assistant", "agent_type": "knowledge-assistant",
          "serving_endpoint": {"name": "ka-endpoint"}},
-        {"name": "Ticker_Data_Explorer", "agent_type": "genie",
+        {"name": "Ticker_Data_Explorer", "agent_type": "genie-space",
          "genie_space": {"id": "space-123"}},
         _fn_agent("Chart_Generator", "generate_vega_lite_spec"),
         _fn_agent("Web_Search", "you_web_search"),
@@ -72,7 +72,7 @@ def test_replace_preserves_the_internal_bricks(baseline):
     assert {"Financial_Documents_Assistant", "Ticker_Data_Explorer", "Chart_Generator"} <= names
 
     kinds = {a.get("agent_type") for a in planned}
-    assert "ka" in kinds and "genie" in kinds
+    assert "knowledge-assistant" in kinds and "genie-space" in kinds
 
 
 def test_replace_is_idempotent(baseline):
@@ -142,3 +142,23 @@ def test_tool_descriptions_tell_the_model_to_cite():
     search = GOVERNED_TOOLS["era_you_search"]["description"].lower()
     assert "cite" in search
     assert "news" in search, "the model must learn news comes from this same tool"
+
+
+def test_both_agent_type_vocabularies_are_recognised():
+    """
+    The API accepts a short form on write and echoes a long form on read. Code that
+    understands only one of them silently fails to match - which is exactly how
+    replace-mode came to leave the ungoverned tools attached.
+    """
+    short = _fn_agent("Web_Search", "you_web_search")
+    short["agent_type"] = "function"
+    long = _fn_agent("Web_Search", "you_web_search")
+
+    assert agent_function_name(short) == "you_web_search"
+    assert agent_function_name(long) == "you_web_search"
+
+    for variant in (short, long):
+        planned = plan_agents([variant], CATALOG, SCHEMA, "replace")
+        assert not _funcs(planned) & FALLBACK_FUNCTIONS, (
+            f"ungoverned tool survived replace with agent_type={variant['agent_type']!r}"
+        )

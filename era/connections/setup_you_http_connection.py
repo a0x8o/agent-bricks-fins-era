@@ -135,13 +135,16 @@ def check_balance(w: WorkspaceClient, warehouse_id: str, scope: str, key: str) -
     """
     Read the account's prepaid credit balance, in USD. None if it cannot be read.
 
-    WHY this runs before the search probe: an exhausted balance returns HTTP 402,
-    which is easy to misread as a broken key or a broken connection. It is neither -
-    auth succeeded, the connection worked, there is simply no credit. Checking the
-    balance first turns a confusing failure into a one-line diagnosis.
+    IMPORTANT - THIS BALANCE DOES NOT COVER SEARCH OR CONTENTS.
+    Verified live on 2026-08-05: the two hosts bill from SEPARATE pools. An account
+    can hold a healthy prepaid balance on api.you.com (Research, Finance Research)
+    while ydc-index.io (Search, Contents) returns 402 "prepaid credit balance has
+    been depleted" on every call. We observed exactly that: $200.00 reported here,
+    Research returning 200, Search and Contents both returning 402.
 
-    Note this is on api.you.com, not ydc-index.io, so it goes through the research
-    connection rather than the search one.
+    So this number is a useful diagnostic for the slow tier and actively misleading
+    for the fast tier. It is reported, never used to conclude the fast tier will
+    work - the only way to know that is to call it.
     """
     stmt = f"""
     SELECT http_request(
@@ -175,16 +178,11 @@ def verify(w: WorkspaceClient, warehouse_id: str, scope: str, key: str) -> bool:
     """
     balance = check_balance(w, warehouse_id, scope, key)
     if balance is not None:
-        logger.info("You.com prepaid balance: $%.2f", balance)
-        if balance <= 0:
-            logger.error(
-                "The credential is VALID but the account has no prepaid credit "
-                "($%.2f). Every paid endpoint will return HTTP 402 until credits "
-                "are added at you.com/platform. This is a billing state, not a "
-                "configuration problem - do not go looking for a bad key.",
-                balance,
-            )
-            return False
+        logger.info(
+            "You.com prepaid balance on api.you.com (Research tier): $%.2f "
+            "- this does NOT cover Search or Contents, which bill separately.",
+            balance,
+        )
 
     stmt = f"""
     SELECT http_request(
@@ -232,9 +230,12 @@ def verify(w: WorkspaceClient, warehouse_id: str, scope: str, key: str) -> bool:
         # "unexpected" this reads as a setup fault and sends people to debug the
         # wrong layer.
         logger.error(
-            "HTTP 402 payment_required - the credential is VALID and the "
-            "connection works, but the prepaid balance is depleted. Add credits at "
-            "you.com/platform. Nothing in this repo needs changing.",
+            "HTTP 402 payment_required on ydc-index.io. The credential is VALID and "
+            "the connection works - this is billing, not configuration. Note that "
+            "Search/Contents (ydc-index.io) bill SEPARATELY from the api.you.com "
+            "prepaid balance: an account can have credit for Research and still get "
+            "402 here. Buy Search API capacity specifically at you.com/platform; "
+            "topping up the Research balance will not clear this.",
         )
         return False
     logger.error("unexpected HTTP %s from You.com: %s", status, str(parsed)[:300])

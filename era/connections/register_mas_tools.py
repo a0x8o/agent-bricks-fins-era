@@ -79,12 +79,26 @@ def load_config() -> dict:
     return ns
 
 
+# The Agent Bricks API accepts a short form on write ("function", "ka", "genie")
+# but ECHOES BACK a canonical long form ("unity-catalog-function",
+# "knowledge-assistant", "genie-space"). Reading the live supervisor therefore
+# yields the long form, and any comparison written against the short form alone
+# silently matches nothing.
+#
+# This bit: replace-mode filtering compared against "function", found no matches,
+# and produced a supervisor with BOTH the governed and the ungoverned web tools
+# attached under duplicate names - defeating the entire point of the swap. Caught
+# by --dry-run against the real workspace, not by the unit tests, which had been
+# written against the write vocabulary.
+UC_FUNCTION_AGENT_TYPES = frozenset({"function", "unity-catalog-function"})
+
+
 def uc_function_agent(catalog: str, schema: str, func: str, name: str, description: str) -> dict:
-    """Build a MAS agent entry for a UC function, matching 04's existing shape."""
+    """Build a MAS agent entry for a UC function, in the API's canonical form."""
     return {
         "name": name,
         "description": description,
-        "agent_type": "function",
+        "agent_type": "unity-catalog-function",
         "unity_catalog_function": {
             "uc_path": {"catalog": catalog, "schema": schema, "name": func}
         },
@@ -93,7 +107,7 @@ def uc_function_agent(catalog: str, schema: str, func: str, name: str, descripti
 
 def agent_function_name(agent: dict) -> str | None:
     """Return the UC function name an agent points at, if it is a function agent."""
-    if agent.get("agent_type") != "function":
+    if agent.get("agent_type") not in UC_FUNCTION_AGENT_TYPES:
         return None
     return (agent.get("unity_catalog_function") or {}).get("uc_path", {}).get("name")
 
