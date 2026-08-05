@@ -131,6 +131,17 @@ class ResearchError(RuntimeError):
     pass
 
 
+def _http_error(label: str, status_code: int, payload) -> ResearchError:
+    """Build an error that names the cause, not just the status code."""
+    message = f"{label} failed: HTTP {status_code} {str(payload)[:300]}"
+    if status_code == 402:
+        message += (
+            " | payment_required: the key is valid and the request reached You.com, "
+            "but the prepaid balance is depleted. Add credits at you.com/platform."
+        )
+    return ResearchError(message)
+
+
 # ---------------------------------------------------------------------------
 # Transport
 #
@@ -281,7 +292,7 @@ def submit_research(
         f"{RESEARCH_HOST}{RESEARCH_PATH}", json=body, headers=_headers(), timeout=60.0
     )
     if status_code >= 400:
-        raise ResearchError(f"research submit failed: HTTP {status_code} {str(payload)[:300]}")
+        raise _http_error("research submit", status_code, payload)
 
     task_id = payload.get("task_id")
     if not task_id:
@@ -313,7 +324,7 @@ def poll_research(
         f"{RESEARCH_HOST}{RESEARCH_PATH}/{task_id}", headers=_headers(), timeout=30.0
     )
     if status_code >= 400:
-        raise ResearchError(f"research poll failed: HTTP {status_code} {str(payload)[:300]}")
+        raise _http_error("research poll", status_code, payload)
 
     status = TaskStatus(payload.get("status", "running"))
     task = ResearchTask(
@@ -373,7 +384,7 @@ def finance_research(
         timeout=timeout,
     )
     if status_code >= 400:
-        raise ResearchError(f"finance_research failed: HTTP {status_code} {str(payload)[:300]}")
+        raise _http_error("finance_research", status_code, payload)
 
     return _to_result(payload, endpoint="finance_research", effort=effort.value)
 

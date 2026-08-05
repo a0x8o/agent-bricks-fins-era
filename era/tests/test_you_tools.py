@@ -337,3 +337,41 @@ def test_missing_api_key_fails_loudly(monkeypatch, sink):
     transport = FakeTransport(post=(200, {"task_id": "t", "status": "queued"}))
     with pytest.raises(ResearchError, match=you_research.SECRET_ENV):
         you_research.submit_research("q", transport=transport, sink=sink)
+
+
+# ---------------------------------------------------------------------------
+# Billing state must be legible, not just a status code
+# ---------------------------------------------------------------------------
+
+def test_402_on_research_names_the_cause_not_just_the_status(sink):
+    """
+    402 is the one failure that looks like a broken key but isn't. If the error
+    says only "HTTP 402" the next person debugs the connection, the secret and the
+    header before finding the billing page.
+    """
+    transport = FakeTransport(post=(402, {"error": "payment_required"}))
+    with pytest.raises(ResearchError) as exc:
+        you_research.submit_research("q", transport=transport, sink=sink)
+
+    message = str(exc.value).lower()
+    assert "402" in message
+    assert "balance" in message or "credit" in message
+    assert "you.com/platform" in message
+
+
+def test_402_from_the_uc_function_names_the_cause(sink):
+    sql = FakeSql({"era_error": "You.com search returned HTTP 402", "body": "payment_required"})
+    with pytest.raises(you_fast.ToolError) as exc:
+        you_fast.search("q", catalog=CATALOG, schema=SCHEMA, executor=sql, sink=sink)
+
+    message = str(exc.value).lower()
+    assert "402" in message
+    assert "balance" in message or "credit" in message
+
+
+def test_401_is_still_reported_as_a_credential_problem(sink):
+    """The distinction only helps if 401 does NOT get the billing wording."""
+    transport = FakeTransport(post=(401, {"error": "unauthorized"}))
+    with pytest.raises(ResearchError) as exc:
+        you_research.submit_research("q", transport=transport, sink=sink)
+    assert "balance" not in str(exc.value).lower()

@@ -117,7 +117,15 @@ def _parse(raw: str) -> dict[str, Any]:
     # returning an empty string, precisely so this can be surfaced instead of read as
     # "the web had nothing to say".
     if isinstance(payload, dict) and "era_error" in payload:
-        raise ToolError(f"{payload['era_error']}: {str(payload.get('body'))[:200]}")
+        message = f"{payload['era_error']}: {str(payload.get('body'))[:200]}"
+        # 402 is a billing state, not a misconfiguration. Saying so here stops the
+        # next person debugging the connection, the secret, or the header.
+        if "402" in str(payload.get("era_error", "")):
+            message += (
+                " | The API key is valid and the connection works - the You.com "
+                "prepaid balance is depleted. Add credits at you.com/platform."
+            )
+        raise ToolError(message)
     return payload
 
 

@@ -131,6 +131,40 @@ def _execute(w: WorkspaceClient, warehouse_id: str, statement: str, timeout_s: i
     return resp
 
 
+def check_balance(w: WorkspaceClient, warehouse_id: str, scope: str, key: str) -> float | None:
+    """
+    Read the account's prepaid credit balance, in USD. None if it cannot be read.
+
+    WHY this runs before the search probe: an exhausted balance returns HTTP 402,
+    which is easy to misread as a broken key or a broken connection. It is neither -
+    auth succeeded, the connection worked, there is simply no credit. Checking the
+    balance first turns a confusing failure into a one-line diagnosis.
+
+    Note this is on api.you.com, not ydc-index.io, so it goes through the research
+    connection rather than the search one.
+    """
+    stmt = f"""
+    SELECT http_request(
+      conn    => 'you_research_http',
+      method  => 'GET',
+      path    => '/v1/billing/account_balance',
+      headers => map('X-API-Key', secret('{scope}','{key}'))
+    ) AS response
+    """
+    try:
+        resp = _execute(w, warehouse_id, stmt)
+        raw = resp.result.data_array[0][0]
+        parsed = json.loads(raw)
+        if int(parsed.get("status_code", 0)) != 200:
+            return None
+        body = json.loads(parsed.get("text") or "{}")
+        cents = ((body.get("data") or {}).get("attributes") or {}).get("balance")
+        return None if cents is None else float(cents) / 100.0
+    except Exception as exc:  # noqa: BLE001 - diagnostic only, never fatal
+        logger.debug("balance check unavailable: %s", exc)
+        return None
+
+
 def verify(w: WorkspaceClient, warehouse_id: str, scope: str, key: str) -> bool:
     """
     Prove the connection actually reaches You.com and the key is accepted.
@@ -139,6 +173,19 @@ def verify(w: WorkspaceClient, warehouse_id: str, scope: str, key: str) -> bool:
     the remote host, so a "successful" setup tells you nothing about whether the
     credential works. This issues a real, cheap search and checks the HTTP status.
     """
+    balance = check_balance(w, warehouse_id, scope, key)
+    if balance is not None:
+        logger.info("You.com prepaid balance: $%.2f", balance)
+        if balance <= 0:
+            logger.error(
+                "The credential is VALID but the account has no prepaid credit "
+                "($%.2f). Every paid endpoint will return HTTP 402 until credits "
+                "are added at you.com/platform. This is a billing state, not a "
+                "configuration problem - do not go looking for a bad key.",
+                balance,
+            )
+            return False
+
     stmt = f"""
     SELECT http_request(
       conn    => 'you_search_http',
@@ -177,6 +224,17 @@ def verify(w: WorkspaceClient, warehouse_id: str, scope: str, key: str) -> bool:
             "You.com rejected the credential (HTTP %s). Check that the secret "
             "%s/%s holds a valid key and that your plan covers /v1/search.",
             status, scope, key,
+        )
+        return False
+    if status == 402:
+        # Distinct from 401/403 and worth its own message: the key is fine, the
+        # connection is fine, the account is simply out of credit. Reported as
+        # "unexpected" this reads as a setup fault and sends people to debug the
+        # wrong layer.
+        logger.error(
+            "HTTP 402 payment_required - the credential is VALID and the "
+            "connection works, but the prepaid balance is depleted. Add credits at "
+            "you.com/platform. Nothing in this repo needs changing.",
         )
         return False
     logger.error("unexpected HTTP %s from You.com: %s", status, str(parsed)[:300])
