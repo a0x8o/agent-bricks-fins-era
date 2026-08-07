@@ -324,12 +324,25 @@ def test_internal_topology_is_stripped_without_refusing(sink):
 # ---------------------------------------------------------------------------
 
 class _FakeStatementExecution:
+    """Models the real return shape: a response carrying a status, not None."""
+
     def __init__(self):
         self.calls = []
 
     def execute_statement(self, **kwargs):
         self.calls.append(kwargs)
-        return None
+
+        class _State:
+            value = "SUCCEEDED"
+
+        class _Status:
+            state = _State()
+            error = None
+
+        class _Resp:
+            status = _Status()
+
+        return _Resp()
 
 
 class _FakeWorkspace:
@@ -423,3 +436,36 @@ def test_warehouse_sink_passes_sdk_parameter_objects_not_dicts():
     for p in params:
         assert isinstance(p, StatementParameterListItem), f"got {type(p).__name__}, expected SDK object"
         assert hasattr(p, "as_dict"), "the SDK requires objects exposing as_dict()"
+
+
+def test_a_failed_audit_write_is_logged_not_swallowed(caplog):
+    """
+    execute_statement returns a FAILED status rather than raising. Unchecked, the
+    gate enforces the decision and records nothing while reporting success.
+    """
+    from era.tools.redaction import AuditRecord, SqlWarehouseAuditSink
+
+    class FailingStatements:
+        def execute_statement(self, **kwargs):
+            class S:
+                class state:
+                    value = "FAILED"
+                class error:
+                    message = "PERMISSION_DENIED on egress_audit"
+            class R:
+                status = S()
+            return R()
+
+    class W:
+        statement_execution = FailingStatements()
+
+    sink = SqlWarehouseAuditSink("c", "s", "wh-1", workspace_client=W())
+    record = AuditRecord(
+        ts="t", endpoint="search", allowed=False, reason="r",
+        query_sha256="a"*64, scrubbed_sha256="a"*64, redaction_counts={},
+        sensitivity="public", domain_mode="deny", zdr_covered=False, principal="sp",
+    )
+    with caplog.at_level("ERROR", logger="era.gate"):
+        sink.write(record)   # must not raise - the refusal matters more than the row
+
+    assert any("AUDIT WRITE FAILED" in r.message for r in caplog.records)

@@ -566,12 +566,29 @@ class SqlWarehouseAuditSink:
             else:
                 params.append(StatementParameterListItem(name=name, value=str(value), type=sql_type))
 
-        self._client().statement_execution.execute_statement(
+        resp = self._client().statement_execution.execute_statement(
             warehouse_id=self.warehouse_id,
             statement=f"INSERT INTO {self.full_name} ({', '.join(names)}) VALUES ({placeholders})",
             parameters=params,
             wait_timeout="30s",
         )
+
+        # execute_statement RETURNS a FAILED status; it does not raise. Without this
+        # check a rejected INSERT is swallowed and the gate reports success while
+        # recording nothing - the exact failure this module's docstring warns about,
+        # and which cost two evaluation runs before it was noticed. Log rather than
+        # raise: losing an audit row must be loud, but it must not take down the
+        # answer, because the refusal itself is the more important control.
+        state = resp.status.state.value if resp.status and resp.status.state else "UNKNOWN"
+        if state != "SUCCEEDED":
+            detail = ""
+            if resp.status and resp.status.error:
+                detail = f": {resp.status.error.message}"
+            logger.error(
+                "AUDIT WRITE FAILED (%s)%s - the egress decision for endpoint=%s was "
+                "enforced but NOT recorded in %s",
+                state, detail[:300], record.endpoint, self.full_name,
+            )
 
 
 class DeltaAuditSink:
