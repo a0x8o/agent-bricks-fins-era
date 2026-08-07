@@ -192,29 +192,40 @@ def _call_scorer(scorer_fn, outputs, expectations):
 
 def build_predict_fn(endpoint: str) -> Callable[..., dict]:
     """
-    Wrap the deployed agent so evaluate() can call it.
+    Call the DEPLOYED agent endpoint.
 
-    Returns both the answer and the evidence behind it: the deterministic scorers
-    resolve citations against what the tools actually returned, so an evaluation that
-    only captured the prose could not tell a real citation from an invented one -
-    which is the single most important thing this harness checks.
+    An earlier version constructed EraSupervisor(model=endpoint) and ran the pipeline
+    locally, which evaluated the code on this machine rather than the thing actually
+    serving traffic - and would have failed anyway, because an agent endpoint speaks
+    the Responses API while that path calls chat completions.
+
+    Evidence comes back in custom_outputs. Without it the deterministic scorers have
+    nothing to resolve citations against, and citation_validity would score every
+    answer 1.0 including fabricated ones - the harness would report success precisely
+    where it is meant to fail.
     """
-    from era.agent.supervisor import EraSupervisor
+    from databricks.sdk import WorkspaceClient
 
-    agent = EraSupervisor(model=endpoint)
+    client = WorkspaceClient().serving_endpoints.get_open_ai_client()
 
     def predict_fn(question: str) -> dict:
-        from era.agent.supervisor import build_evidence
+        response = client.responses.create(
+            model=endpoint, input=[{"role": "user", "content": question}]
+        )
+        payload = response.model_dump() if hasattr(response, "model_dump") else dict(response)
 
-        state = agent.answer(question)
-        evidence = build_evidence(state)
+        text = ""
+        for item in payload.get("output") or []:
+            if isinstance(item, dict) and item.get("type") == "message":
+                for chunk in item.get("content") or []:
+                    if isinstance(chunk, dict) and chunk.get("text"):
+                        text += chunk["text"]
+
+        custom = payload.get("custom_outputs") or {}
         return {
-            "answer": state.get("answer", ""),
-            "evidence": {
-                "internal_lineage": sorted(evidence.internal_lineage),
-                "external_urls": sorted(evidence.external_urls),
-            },
-            "notices": state.get("notices", []),
+            "answer": text,
+            "evidence": custom.get("evidence") or {},
+            "notices": custom.get("notices") or [],
         }
 
     return predict_fn

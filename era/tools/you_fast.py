@@ -87,7 +87,22 @@ class WarehouseExecutor:
         return self._w
 
     def scalar(self, statement: str, params: list[dict]) -> str:
+        from databricks.sdk.service.sql import StatementParameterListItem
+
+        # StatementParameterListItem, NOT dicts. The SDK calls .as_dict() on each
+        # element, so plain dicts fail with "'dict' object has no attribute
+        # 'as_dict'" - the same trap as ChatMessage in internal_bricks.py. It cost a
+        # whole evaluation run: the audit write raised before any egress decision
+        # could be recorded, every web tool reported a "technical error", and the
+        # governance questions scored as unrefused when the gate had in fact never
+        # been reached.
         w = self._client()
+        params = [
+            StatementParameterListItem(
+                name=p["name"], value=p.get("value"), type=p.get("type")
+            )
+            for p in params
+        ]
         resp = w.statement_execution.execute_statement(
             warehouse_id=self.warehouse_id,
             statement=statement,

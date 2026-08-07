@@ -210,3 +210,85 @@ def test_internal_lineage_satisfies_provenance_validation():
 
     answer = f"Closing price was $145.20 [IV:{result.lineage[0]}]."
     assert check(answer, evidence).ok
+
+
+def test_serving_client_uses_the_responses_api_not_messages():
+    """
+    Agent Bricks endpoints reject `messages` with "Please use 'input' field
+    instead" - a failure that only appears against a live endpoint, and did.
+    """
+    captured = {}
+
+    class FakeResponses:
+        def create(self, model, input):
+            captured["model"] = model
+            captured["input"] = input
+            class R:
+                def model_dump(self):
+                    return {"output": [{"type": "message",
+                                        "content": [{"type": "output_text", "text": "ok"}]}]}
+            return R()
+
+    class FakeOpenAI:
+        responses = FakeResponses()
+
+    class FakeServingEndpoints:
+        def get_open_ai_client(self):
+            return FakeOpenAI()
+
+        def query(self, **kwargs):  # pragma: no cover
+            raise AssertionError("must not use the chat-completions query path")
+
+    class FakeWorkspace:
+        serving_endpoints = FakeServingEndpoints()
+
+    from era.tools.internal_bricks import WorkspaceServingClient, ask_documents
+
+    client = WorkspaceServingClient(workspace_client=FakeWorkspace())
+    result = ask_documents("why?", endpoint="ka-endpoint", client=client)
+
+    assert captured["model"] == "ka-endpoint"
+    assert captured["input"] == [{"role": "user", "content": "why?"}]
+    assert result.answer == "ok"
+
+
+def test_answer_extraction_handles_both_payload_shapes():
+    """Responses output[] and chat-completions choices[] must both parse."""
+    from era.tools.internal_bricks import _extract_text
+
+    responses_shape = {"output": [{"type": "message",
+                                   "content": [{"type": "output_text", "text": "from responses"}]}]}
+    chat_shape = {"choices": [{"message": {"content": "from chat"}}]}
+
+    assert _extract_text(responses_shape) == "from responses"
+    assert _extract_text(chat_shape) == "from chat"
+    assert _extract_text({}) == ""
+
+
+def test_ka_lineage_is_compacted_to_something_a_model_can_echo():
+    """
+    KA citations are 1-2 KB signed URLs with a percent-encoded quotation fragment.
+    A lineage id goes inside an [IV:...] tag, so if it stays that long no model will
+    reproduce it and every correctly-sourced internal claim fails validation.
+    """
+    from era.tools.internal_bricks import _compact_lineage
+
+    raw = ("https://dbc-3aa503a9-4fa8.cloud.databricks.com/ajax-api/2.0/fs/files"
+           "/Volumes/alexxx/era_research/raw_documents/10k/nvidia.pdf#page=13"
+           ":~:text=Risks%20Related%20to%20Demand%2C%20Supply%20and%20Manufacturing")
+
+    compact = _compact_lineage(raw)
+    assert compact == "/Volumes/alexxx/era_research/raw_documents/10k/nvidia.pdf#page=13"
+    assert len(compact) < 100, "must be short enough for a model to echo verbatim"
+
+
+def test_citations_to_the_same_page_collapse_to_one_source():
+    """Different highlight fragments on one page are the same source, not three."""
+    client = FakeServing({
+        "choices": [{"message": {"content": "x"}}],
+        "citations": [
+            {"doc_uri": "https://h/Volumes/c/s/v/a.pdf#page=1:~:text=one"},
+            {"doc_uri": "https://h/Volumes/c/s/v/a.pdf#page=1:~:text=two"},
+        ],
+    })
+    assert ask_documents("q", endpoint="ka", client=client).lineage == ("/Volumes/c/s/v/a.pdf#page=1",)

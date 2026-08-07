@@ -386,18 +386,47 @@ class EraSupervisor:
     def __init__(self, model: str | None = None, tools: ToolBundle | None = None):
         self.model = model or llm_endpoint()
         self.tools = tools or ToolBundle()
+        self._openai = None
+
+    def _client(self):
+        """Cached OpenAI-compatible client for the Foundation Model endpoint."""
+        if self._openai is None:
+            from databricks.sdk import WorkspaceClient
+
+            self._openai = WorkspaceClient().serving_endpoints.get_open_ai_client()
+        return self._openai
 
     def _llm(self, system: str, user: str) -> str:
-        from era.tools.serving_utils import SimpleResponsesAgent
+        """
+        One system+user completion against the configured model endpoint.
 
-        agent = SimpleResponsesAgent(model=self.model)
-        from mlflow.types.responses import ResponsesAgentRequest
+        USES CHAT COMPLETIONS, NOT THE RESPONSES API, AND THAT IS DELIBERATE.
+        A Foundation Model endpoint rejects Responses-API calls outright:
+        "Responses API passthrough is not supported for model
+        databricks-claude-sonnet-4-5". The Responses API is for *agent* endpoints
+        (the MAS speaks it); chat completions is what a raw FM endpoint speaks.
 
-        request = ResponsesAgentRequest(
-            input=[{"role": "system", "content": system}, {"role": "user", "content": user}]
+        SimpleResponsesAgent is therefore the wrong tool for this call even though
+        ERA still uses it elsewhere - it is a client for an endpoint that already
+        speaks Responses, which is what the app talks to, not what the planner and
+        synthesiser talk to. The X-Client-Request-ID header is kept because that is
+        the genuinely valuable half of its contract: it lets a trace be correlated
+        back to the request that produced it.
+        """
+        import uuid
+
+        response = self._client().chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            extra_headers={"X-Client-Request-ID": f"era-{uuid.uuid4().hex[:8]}"},
         )
-        response = agent.predict(request)
-        return _first_text(response)
+        choices = getattr(response, "choices", None) or []
+        if not choices:
+            return ""
+        return getattr(choices[0].message, "content", "") or ""
 
     def answer(self, question: str, *, sensitivity: str = "public") -> dict[str, Any]:
         state = new_state(question, sensitivity=sensitivity)

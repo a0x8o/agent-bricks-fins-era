@@ -317,3 +317,109 @@ def test_internal_topology_is_stripped_without_refusing(sink):
     decision = gate("compare figures in main.finance.revenue to consensus", endpoint="search", sink=sink)
     assert decision.allowed
     assert "main.finance.revenue" not in decision.scrubbed_query
+
+
+# ---------------------------------------------------------------------------
+# Audit sinks
+# ---------------------------------------------------------------------------
+
+class _FakeStatementExecution:
+    def __init__(self):
+        self.calls = []
+
+    def execute_statement(self, **kwargs):
+        self.calls.append(kwargs)
+        return None
+
+
+class _FakeWorkspace:
+    def __init__(self):
+        self.statement_execution = _FakeStatementExecution()
+
+
+def test_audit_ddl_columns_track_the_record_shape():
+    """
+    The DDL, both sinks and every query share one column list. If AuditRecord gains
+    a field without the DDL following, writes fail at runtime in production only.
+    """
+    from era.tools.redaction import AUDIT_COLUMNS, AuditRecord
+
+    assert [name for name, _ in AUDIT_COLUMNS] == list(AuditRecord.__dataclass_fields__)
+
+
+def test_warehouse_sink_writes_a_parameterised_insert_with_no_query_text(sink):
+    from era.tools.redaction import SqlWarehouseAuditSink
+
+    w = _FakeWorkspace()
+    warehouse_sink = SqlWarehouseAuditSink("alexxx", "era_research", "wh-1", workspace_client=w)
+
+    gate("outlook for Project Northstar and alex.barreto@entrada.ai",
+         endpoint="search", sink=warehouse_sink)
+
+    assert len(w.statement_execution.calls) == 1
+    call = w.statement_execution.calls[0]
+
+    # The statement is all placeholders - no interpolated values at all.
+    assert "INSERT INTO alexxx.era_research.egress_audit" in call["statement"]
+    for fragment in ("Northstar", "alex.barreto", "entrada.ai", "outlook"):
+        assert fragment not in call["statement"]
+        assert all(fragment not in str(p.value) for p in call["parameters"])
+
+
+def test_warehouse_sink_survives_the_all_null_common_case():
+    """
+    A clean call has no redactions, no cost, no latency and no request id. That is
+    the COMMON path, and it is the one schema inference cannot type - hence explicit
+    types on every null parameter.
+    """
+    from era.tools.redaction import AuditRecord, SqlWarehouseAuditSink
+
+    w = _FakeWorkspace()
+    SqlWarehouseAuditSink("c", "s", "wh-1", workspace_client=w).write(
+        AuditRecord(
+            ts="2026-08-05T00:00:00Z", endpoint="search", allowed=True, reason="ok",
+            query_sha256="a" * 64, scrubbed_sha256="a" * 64, redaction_counts={},
+            sensitivity="public", domain_mode="deny", zdr_covered=False,
+            principal="sp", cost_usd=None, latency_ms=None, request_id=None,
+        )
+    )
+    params = {p.name: p for p in w.statement_execution.calls[0]["parameters"]}
+    for nullable in ("cost_usd", "latency_ms", "request_id"):
+        assert params[nullable].value is None
+        assert params[nullable].type, f"{nullable} needs an explicit type when null"
+
+
+def test_warehouse_sink_keeps_redaction_counts_a_typed_map():
+    """JSON on the wire, MAP in the table - the transport must not degrade the column."""
+    from era.tools.redaction import SqlWarehouseAuditSink
+
+    w = _FakeWorkspace()
+    s = SqlWarehouseAuditSink("c", "s", "wh-1", workspace_client=w)
+    gate("mail alex.barreto@entrada.ai", endpoint="search", sink=s)
+
+    call = w.statement_execution.calls[0]
+    assert "from_json(:redaction_counts, 'MAP<STRING, INT>')" in call["statement"]
+    counts = next(p for p in call["parameters"] if p.name == "redaction_counts")
+    assert '"email": 1' in counts.value or '"email":1' in counts.value
+
+
+def test_warehouse_sink_passes_sdk_parameter_objects_not_dicts():
+    """
+    execute_statement calls .as_dict() on every parameter, so dicts raise
+    "'dict' object has no attribute 'as_dict'". That failure surfaced as the audit
+    write blowing up before any egress decision could be recorded, which in turn
+    made the governance questions score as unrefused - the gate had never been
+    reached. Pin the type so it cannot regress to dicts.
+    """
+    from databricks.sdk.service.sql import StatementParameterListItem
+    from era.tools.redaction import SqlWarehouseAuditSink
+
+    w = _FakeWorkspace()
+    gate("a clean question about market conditions", endpoint="search",
+         sink=SqlWarehouseAuditSink("c", "s", "wh-1", workspace_client=w))
+
+    params = w.statement_execution.calls[0]["parameters"]
+    assert params, "no parameters were bound"
+    for p in params:
+        assert isinstance(p, StatementParameterListItem), f"got {type(p).__name__}, expected SDK object"
+        assert hasattr(p, "as_dict"), "the SDK requires objects exposing as_dict()"

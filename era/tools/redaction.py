@@ -48,7 +48,33 @@ import yaml
 logger = logging.getLogger("era.gate")
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-CONF_DIR = REPO_ROOT / "conf"
+
+
+def _resolve_conf_dir() -> pathlib.Path:
+    """
+    Locate conf/ in both the repo and a packaged model.
+
+    WHY this is not just REPO_ROOT/conf: when MLflow logs the agent it copies the
+    `era` package and `conf` into the model artifact as siblings, so parents[2] no
+    longer points at a checkout. Policy files that silently fail to load would leave
+    the gate with an empty denylist and no sensitive terms - it would keep running,
+    approve everything, and look healthy. Failing to find them must be impossible
+    rather than quiet, so the packaged layout is a first-class candidate.
+    """
+    override = os.environ.get("ERA_CONF_DIR")
+    candidates = [pathlib.Path(override)] if override else []
+    candidates += [
+        REPO_ROOT / "conf",                                    # repo checkout
+        pathlib.Path(__file__).resolve().parents[1] / "conf",  # packaged alongside era/
+    ]
+    for candidate in candidates:
+        if (candidate / "routing_policy.yaml").exists():
+            return candidate
+    # Return the repo path so the resulting error names a real location.
+    return REPO_ROOT / "conf"
+
+
+CONF_DIR = _resolve_conf_dir()
 
 REDACTION_PLACEHOLDER = "[REDACTED:{kind}]"
 
@@ -447,13 +473,113 @@ class InMemoryAuditSink:
         self.records.append(record)
 
 
+# Column order is the contract between the DDL, both sinks and anyone querying the
+# table. Changing it means migrating the table, not just editing this tuple.
+AUDIT_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("ts", "STRING"),
+    ("endpoint", "STRING"),
+    ("allowed", "BOOLEAN"),
+    ("reason", "STRING"),
+    ("query_sha256", "STRING"),
+    ("scrubbed_sha256", "STRING"),
+    ("redaction_counts", "MAP<STRING, INT>"),
+    ("sensitivity", "STRING"),
+    ("domain_mode", "STRING"),
+    ("zdr_covered", "BOOLEAN"),
+    ("principal", "STRING"),
+    ("cost_usd", "DOUBLE"),
+    ("latency_ms", "BIGINT"),
+    ("request_id", "STRING"),
+)
+
+
+def audit_table_ddl(catalog: str, schema: str, table: str = "egress_audit") -> str:
+    """
+    DDL for the egress audit table.
+
+    Every column is nullable and typed explicitly. WHY explicit rather than inferred:
+    a clean call has no redactions, no cost and no latency, so schema inference sees
+    an all-NULL column and fails with "Some of types cannot be determined". The
+    common case is precisely the one inference cannot handle.
+    """
+    cols = ",\n  ".join(f"{name} {sql_type}" for name, sql_type in AUDIT_COLUMNS)
+    return (
+        f"CREATE TABLE IF NOT EXISTS {catalog}.{schema}.{table} (\n  {cols}\n)\n"
+        f"USING DELTA\n"
+        f"COMMENT 'ERA outbound egress decisions. Hashes only - never query text.'"
+    )
+
+
+class SqlWarehouseAuditSink:
+    """
+    Append audit rows through the SQL Statement Execution API.
+
+    THIS IS THE SINK THE DEPLOYED AGENT USES. A Model Serving container has no Spark
+    session, so the Spark-based sink below cannot run there - it is for notebooks and
+    jobs. Getting this wrong means the gate appears to work while every audit row is
+    silently dropped, which is worse than having no audit table at all: the control
+    reports success and retains nothing.
+
+    redaction_counts is passed as a JSON string and parsed with from_json so the
+    column stays a typed MAP rather than degrading to text for the convenience of
+    the transport.
+    """
+
+    def __init__(self, catalog: str, schema: str, warehouse_id: str,
+                 table: str = "egress_audit", workspace_client=None):
+        self.full_name = f"{catalog}.{schema}.{table}"
+        self.warehouse_id = warehouse_id
+        self._w = workspace_client
+
+    def _client(self):
+        if self._w is None:
+            from databricks.sdk import WorkspaceClient
+
+            self._w = WorkspaceClient()
+        return self._w
+
+    def write(self, record: AuditRecord) -> None:
+        import json as _json
+
+        row = record.as_row()
+        names = [n for n, _ in AUDIT_COLUMNS]
+        placeholders = ", ".join(
+            "from_json(:redaction_counts, 'MAP<STRING, INT>')" if n == "redaction_counts" else f":{n}"
+            for n in names
+        )
+        from databricks.sdk.service.sql import StatementParameterListItem
+
+        # StatementParameterListItem, NOT dicts. The SDK calls .as_dict() on each
+        # element, so plain dicts fail with "'dict' object has no attribute
+        # 'as_dict'" - the same trap as ChatMessage in internal_bricks.py. It cost a
+        # whole evaluation run: the audit write raised before any egress decision
+        # could be recorded, every web tool reported a "technical error", and the
+        # governance questions scored as unrefused when the gate had in fact never
+        # been reached.
+        params = []
+        for name, sql_type in AUDIT_COLUMNS:
+            value = row.get(name)
+            if name == "redaction_counts":
+                params.append(StatementParameterListItem(name=name, value=_json.dumps(value or {})))
+            elif value is None:
+                params.append(StatementParameterListItem(name=name, value=None, type=sql_type))
+            else:
+                params.append(StatementParameterListItem(name=name, value=str(value), type=sql_type))
+
+        self._client().statement_execution.execute_statement(
+            warehouse_id=self.warehouse_id,
+            statement=f"INSERT INTO {self.full_name} ({', '.join(names)}) VALUES ({placeholders})",
+            parameters=params,
+            wait_timeout="30s",
+        )
+
+
 class DeltaAuditSink:
     """
-    Append to CATALOG.SCHEMA.egress_audit.
+    Append to CATALOG.SCHEMA.egress_audit via Spark.
 
-    Requires an active Spark session, so it is only usable inside Databricks. It is
-    not the default: an audit sink that raises on import would make the gate
-    untestable, and a gate that is hard to test is a gate that gets bypassed.
+    For notebooks and jobs only - a serving container has no Spark session. Use
+    SqlWarehouseAuditSink there.
     """
 
     def __init__(self, catalog: str, schema: str, table: str = "egress_audit", spark=None):
@@ -469,7 +595,9 @@ class DeltaAuditSink:
 
     def write(self, record: AuditRecord) -> None:
         spark = self._session()
-        df = spark.createDataFrame([record.as_row()])
+        # Explicit schema: inference fails on the all-NULL columns a clean call produces.
+        schema_ddl = ", ".join(f"{name} {sql_type}" for name, sql_type in AUDIT_COLUMNS)
+        df = spark.createDataFrame([record.as_row()], schema=schema_ddl)
         df.write.mode("append").saveAsTable(self.full_name)
 
 

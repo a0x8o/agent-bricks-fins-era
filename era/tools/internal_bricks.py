@@ -70,7 +70,7 @@ class ServingClient(Protocol):
 
 
 class WorkspaceServingClient:
-    """Queries a serving endpoint through the Databricks SDK."""
+    """Queries a Knowledge Assistant endpoint through the Responses API."""
 
     def __init__(self, workspace_client=None):
         self._w = workspace_client
@@ -83,15 +83,58 @@ class WorkspaceServingClient:
         return self._w
 
     def query(self, endpoint: str, messages: list[dict]) -> dict:
-        w = self._client()
-        resp = w.serving_endpoints.query(name=endpoint, messages=messages)
-        return resp.as_dict() if hasattr(resp, "as_dict") else dict(resp)
+        """
+        USES THE RESPONSES API, NOT `messages`.
+
+        Agent Bricks endpoints (KA and MAS) speak Responses and reject
+        chat-completions payloads outright: "Invalid request: 'messages' field is
+        not supported. Please use 'input' field instead." Foundation Model endpoints
+        are the mirror image - they reject Responses and want chat completions (see
+        EraSupervisor._llm, which hit exactly that).
+
+        Both errors only surface against a live endpoint and they point in opposite
+        directions, so the rule worth remembering is: agent endpoints take `input`,
+        model endpoints take `messages`.
+        """
+        client = self._client().serving_endpoints.get_open_ai_client()
+        resp = client.responses.create(
+            model=endpoint,
+            input=[
+                {"role": m.get("role", "user"), "content": m.get("content", "")}
+                for m in messages
+            ],
+        )
+        return resp.model_dump() if hasattr(resp, "model_dump") else dict(resp)
 
 
 # Citation shapes vary across Agent Bricks versions, so probe several rather than
 # binding to one. Returning no lineage is safe (claims degrade to [INF]); guessing a
 # document id would not be.
 _DOC_ID_KEYS = ("doc_uri", "document_id", "doc_id", "source", "chunk_id", "url", "path")
+
+
+def _compact_lineage(value: str) -> str:
+    """
+    Reduce a KA citation URI to a short, stable document reference.
+
+    The KA returns fully-qualified signed URLs carrying a page anchor AND a
+    percent-encoded `:~:text=` fragment of the quoted passage - routinely 1-2 KB
+    each. A lineage identifier ends up inside an `[IV:...]` tag in the answer, so
+    the model would have to reproduce two kilobytes of URL-encoded text verbatim
+    for the citation to validate. It will not, and provenance would fail on every
+    correctly-sourced internal claim.
+
+    So keep the part that identifies the document - the volume path and page - and
+    drop the quotation fragment and host. `/Volumes/cat/schema/vol/10k/nvidia.pdf#page=13`
+    is short enough to echo, stable across runs, and still resolves for a reader.
+    """
+    text = (value or "").strip()
+    if "/Volumes/" in text:
+        text = "/Volumes/" + text.split("/Volumes/", 1)[1]
+    # Drop the highlight fragment but keep a page anchor if present.
+    if ":~:text=" in text:
+        text = text.split(":~:text=", 1)[0]
+    return text.rstrip("#").rstrip()
 
 
 def _extract_ka_lineage(payload: dict) -> tuple[str, ...]:
@@ -111,8 +154,29 @@ def _extract_ka_lineage(payload: dict) -> tuple[str, ...]:
                 walk(item)
 
     walk(payload)
-    # Preserve order, drop duplicates.
-    return tuple(dict.fromkeys(found))
+    # Compact first, then dedupe: several citations often point at the same page
+    # with different highlight fragments, which are the same source.
+    return tuple(dict.fromkeys(_compact_lineage(f) for f in found if _compact_lineage(f)))
+
+
+def _extract_text(payload: dict) -> str:
+    """Pull assistant text from either a Responses or a chat-completions payload."""
+    parts: list[str] = []
+    for item in payload.get("output") or []:
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        for chunk in item.get("content") or []:
+            if isinstance(chunk, dict) and chunk.get("text"):
+                parts.append(chunk["text"])
+    if parts:
+        return "\n".join(parts)
+
+    choices = payload.get("choices") or []
+    if choices:
+        text = ((choices[0] or {}).get("message") or {}).get("content", "") or ""
+        if text:
+            return text
+    return payload.get("output_text") or payload.get("content") or ""
 
 
 def ask_documents(
@@ -132,12 +196,10 @@ def ask_documents(
         endpoint, [{"role": "user", "content": question}]
     )
 
-    answer = ""
-    choices = payload.get("choices") or []
-    if choices:
-        answer = ((choices[0] or {}).get("message") or {}).get("content", "") or ""
-    if not answer:
-        answer = payload.get("content") or payload.get("output_text") or ""
+    # Responses shape first (what an Agent Bricks endpoint returns), then the
+    # chat-completions shape, so this keeps working if the KA is ever fronted by a
+    # plain model endpoint.
+    answer = _extract_text(payload)
 
     if not answer:
         raise InternalToolError(f"knowledge assistant returned no content: {str(payload)[:200]}")
