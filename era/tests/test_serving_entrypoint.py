@@ -150,3 +150,74 @@ def test_custom_inputs_can_carry_sensitivity_and_a_resumed_research_result():
         },
     )
     assert _text(_agent().predict(req))
+
+
+# ---------------------------------------------------------------------------
+# Streaming contract
+#
+# The app talks to the endpoint through the Vercel AI SDK, which always asks for a
+# stream. A ResponsesAgent that only implements `predict` therefore fails every
+# request with NotImplementedError from the serving container - these tests exist so
+# that regression is caught here rather than in the deployed app.
+# ---------------------------------------------------------------------------
+
+def _events(agent, question="what are the supply risks"):
+    req = ResponsesAgentRequest(input=[{"role": "user", "content": question}])
+    return [
+        e.model_dump(exclude_none=True) if hasattr(e, "model_dump") else dict(e)
+        for e in agent.predict_stream(req)
+    ]
+
+
+def test_streaming_emits_the_answer_and_a_completed_item():
+    events = _events(_agent())
+    assert [e["type"] for e in events] == [
+        "response.output_text.delta",
+        "response.output_item.done",
+    ]
+
+    delta, done = events
+    assert "supply concentration" in delta["delta"]
+    assert done["item"]["content"][0]["text"] == delta["delta"]
+    # The app's provider reads deltas and completed items as one item when the ids
+    # match, and as two separate answers when they do not.
+    assert delta["item_id"] == done["item"]["id"]
+
+
+def test_streamed_item_carries_the_fields_the_app_parses():
+    """
+    The client validates each chunk; a chunk that fails validation is dropped, so a
+    missing `output_index` or `annotations` shows up as an empty reply rather than an
+    error. Both are easy to lose and neither is exercised by `predict`.
+    """
+    done = _events(_agent())[-1]
+    assert done["output_index"] == 0
+    item = done["item"]
+    assert item["type"] == "message" and item["role"] == "assistant"
+    assert item["content"][0]["annotations"] == []
+
+
+def test_streaming_reports_provenance_the_same_way_predict_does():
+    """The verdict must not be lost just because the caller asked for a stream."""
+    done = _events(_agent())[-1]
+    assert done["custom_outputs"]["provenance_ok"] is True
+    assert done["custom_outputs"]["citation_coverage"] == 1.0
+
+
+def test_streaming_handles_a_request_with_no_question():
+    req = ResponsesAgentRequest(input=[{"role": "assistant", "content": "orphaned"}])
+    events = [e.model_dump(exclude_none=True) for e in _agent().predict_stream(req)]
+    assert "did not receive a question" in events[-1]["item"]["content"][0]["text"]
+
+
+def test_the_mlflow_reducer_sees_exactly_one_answer():
+    """
+    Deltas plus a completed item is the shape MLflow's trace reducer expects; if the
+    answer were emitted only as deltas the trace would record an empty output, and if
+    it were emitted as two items every consumer would show it twice.
+    """
+    from mlflow.pyfunc import ResponsesAgent
+
+    reduced = ResponsesAgent.responses_agent_output_reducer(_events(_agent()))
+    assert len(reduced["output"]) == 1
+    assert "supply concentration" in reduced["output"][0]["content"][0]["text"]

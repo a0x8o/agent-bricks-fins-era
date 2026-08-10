@@ -27,6 +27,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import os
+from collections.abc import Generator
 from typing import Any
 
 from mlflow.models import set_model
@@ -34,6 +35,7 @@ from mlflow.pyfunc import ResponsesAgent
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
+    ResponsesAgentStreamEvent,
 )
 
 from era.agent.supervisor import ToolBundle, new_state, run_turn
@@ -151,6 +153,11 @@ def build_tools() -> ToolBundle:
 # The served agent
 # ---------------------------------------------------------------------------
 
+# One message item per turn. The streamed deltas and the completed item share this id
+# on purpose: that is how a client tells "these deltas became this item" from "here is
+# a second answer", and it is what keeps the app from rendering the text twice.
+_ITEM_ID = "era-answer"
+
 
 def _last_user_message(request: ResponsesAgentRequest) -> str:
     """Pull the current question out of the Responses input list."""
@@ -181,10 +188,11 @@ class EraResponsesAgent(ResponsesAgent):
         _install_audit_sink()
         self._supervisor = EraSupervisor(model=_env(ENV_LLM) or None, tools=build_tools())
 
-    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+    def _run(self, request: ResponsesAgentRequest) -> tuple[str, dict[str, Any]]:
+        """Run one turn and return (answer, custom_outputs). Shared by both entrypoints."""
         question = _last_user_message(request)
         if not question:
-            return self._respond("I did not receive a question.", {})
+            return "I did not receive a question.", {}
 
         custom = dict(getattr(request, "custom_inputs", None) or {})
         sensitivity = str(custom.get("sensitivity", "public"))
@@ -200,36 +208,55 @@ class EraResponsesAgent(ResponsesAgent):
         from era.agent.supervisor import build_evidence
 
         evidence = build_evidence(state)
-        return self._respond(
-            state.get("answer") or "I was unable to produce an answer.",
-            {
-                "provenance_ok": bool(report.ok) if report else None,
-                "citation_coverage": report.citation_coverage if report else None,
-                "provenance_violations": [str(v) for v in (report.violations if report else ())],
-                "notices": state.get("notices", []),
-                "research_task_id": state.get("research_task_id"),
-                # The evidence the answer was built from. Returned because a caller -
-                # the evaluation harness above all - cannot otherwise tell a real
-                # citation from an invented one: validating [EC:n] means resolving it
-                # against URLs a tool actually returned, and only the agent knows those.
-                "evidence": {
-                    "internal_lineage": sorted(evidence.internal_lineage),
-                    "external_urls": sorted(evidence.external_urls),
-                },
+        return state.get("answer") or "I was unable to produce an answer.", {
+            "provenance_ok": bool(report.ok) if report else None,
+            "citation_coverage": report.citation_coverage if report else None,
+            "provenance_violations": [str(v) for v in (report.violations if report else ())],
+            "notices": state.get("notices", []),
+            "research_task_id": state.get("research_task_id"),
+            # The evidence the answer was built from. Returned because a caller -
+            # the evaluation harness above all - cannot otherwise tell a real
+            # citation from an invented one: validating [EC:n] means resolving it
+            # against URLs a tool actually returned, and only the agent knows those.
+            "evidence": {
+                "internal_lineage": sorted(evidence.internal_lineage),
+                "external_urls": sorted(evidence.external_urls),
             },
+        }
+
+    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+        text, custom_outputs = self._run(request)
+        return self._respond(text, custom_outputs)
+
+    def predict_stream(
+        self, request: ResponsesAgentRequest
+    ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+        """
+        Streaming entrypoint - required, not optional.
+
+        The chatbot app calls the endpoint through the Vercel AI SDK, which always
+        requests a stream; without this method serving raises NotImplementedError and
+        every message in the app fails, however healthy `predict` is.
+
+        The pipeline itself is not incremental: plan/act/synthesize/critique has to
+        finish before any of the answer can be trusted (the critique step can rewrite
+        it), so there is nothing honest to emit early. The turn is run to completion and
+        replayed as one delta followed by the completed item. Consumers that render
+        deltas and consumers that reduce over `response.output_item.done` - MLflow's own
+        trace reducer among them - both see exactly one copy of the answer.
+        """
+        text, custom_outputs = self._run(request)
+        yield ResponsesAgentStreamEvent(**self.create_text_delta(text, item_id=_ITEM_ID))
+        yield ResponsesAgentStreamEvent(
+            type="response.output_item.done",
+            output_index=0,
+            item=self.create_text_output_item(text, _ITEM_ID),
+            custom_outputs=custom_outputs,
         )
 
     def _respond(self, text: str, custom_outputs: dict[str, Any]) -> ResponsesAgentResponse:
         return ResponsesAgentResponse(
-            output=[
-                {
-                    "type": "message",
-                    "id": "era-answer",
-                    "role": "assistant",
-                    "status": "completed",
-                    "content": [{"type": "output_text", "text": text}],
-                }
-            ],
+            output=[self.create_text_output_item(text, _ITEM_ID)],
             custom_outputs=custom_outputs,
         )
 
