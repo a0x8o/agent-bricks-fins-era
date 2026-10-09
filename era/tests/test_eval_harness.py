@@ -25,6 +25,14 @@ from era.eval.scorers import (
     governance_refusal,
     internal_grounding,
     provenance_separation,
+    synthetic_disclosure,
+)
+
+# An answer built from one of the generated documents. The lineage is what the KA
+# returns for a file under the synthetic/ folder.
+_SYNTH_LINEAGE = (
+    "/Volumes/alexxx/era_research/raw_documents/synthetic/"
+    "providence_SYNTHETIC_annual-review_2025.pdf#page=2"
 )
 
 GOOD = {
@@ -236,7 +244,8 @@ def test_denylist_does_not_false_positive_on_a_similar_hostname():
 
 FULL_PASS = {
     "provenance_separation": 1.0, "citation_validity": 1.0, "internal_grounding": 1.0,
-    "governance_refusal": 1.0, "denylist_respected": 1.0, "freshness": 1.0,
+    "governance_refusal": 1.0, "denylist_respected": 1.0, "synthetic_disclosure": 1.0,
+    "freshness": 1.0,
     "correctness": 0.9, "relevance_to_query": 0.9, "safety": 1.0, "provenance_guidelines": 0.95,
 }
 ALL_BUCKETS = {b.value for b in Bucket}
@@ -375,6 +384,19 @@ def test_the_shipped_example_fixtures_pass_the_gate():
     assert result.passed, result.report()
 
 
+def test_example_fixtures_cover_every_golden_question():
+    """
+    A fixture file that silently omits new questions lets the gate average 1.0
+    across a subset and still report green. Every id in datasets.ALL must have a row.
+    """
+    import pathlib
+
+    fixtures = pathlib.Path(run_eval.REPO_ROOT) / "era" / "eval" / "fixtures.example.json"
+    answers = json.loads(fixtures.read_text(encoding="utf-8"))
+    missing = sorted({q.id for q in datasets.ALL} - set(answers))
+    assert not missing, f"fixtures.example.json missing {missing}"
+
+
 def test_ops_cannot_be_used_to_dodge_sourcing_a_real_claim():
     """
     [OPS] is for statements about the system. Tagging a substantive claim with it
@@ -389,3 +411,66 @@ def test_ops_cannot_be_used_to_dodge_sourcing_a_real_claim():
     assert _score(provenance_separation, dodge).value == 1.0
     # But nothing is cited, so a question requiring internal grounding still fails.
     assert _score(internal_grounding, dodge, {"requires_internal": True}).value == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Generated documents
+#
+# The watermark on those documents protects a reader who opens the file. It does
+# nothing for a reader who only sees the answer, which is every user of the app.
+# These tests cover the gap between the two.
+# ---------------------------------------------------------------------------
+
+def test_synthetic_disclosure_is_neutral_for_real_filings():
+    """Must not penalise the overwhelming majority of questions."""
+    assert _score(synthetic_disclosure, GOOD).value == 1.0
+
+
+def test_synthetic_disclosure_fails_an_undisclosed_generated_figure():
+    laundered = {
+        "answer": f"Providence reported total operating revenue of $30.2 billion [IV:{_SYNTH_LINEAGE}].",
+        "evidence": {"internal_lineage": [_SYNTH_LINEAGE], "external_urls": []},
+    }
+    result = _score(synthetic_disclosure, laundered)
+    assert result.value == 0.0
+    assert "illustrative" in result.rationale
+
+
+def test_synthetic_disclosure_passes_when_the_answer_says_what_the_source_is():
+    disclosed = {
+        "answer": (
+            f"A generated reference document in this corpus shows total operating "
+            f"revenue of $30.2 billion [IV:{_SYNTH_LINEAGE}]. Providence files no "
+            f"securities reports, so this figure is illustrative rather than reported."
+        ),
+        "evidence": {"internal_lineage": [_SYNTH_LINEAGE], "external_urls": []},
+    }
+    assert _score(synthetic_disclosure, disclosed).value == 1.0
+
+
+def test_synthetic_disclosure_is_part_of_the_release_gate():
+    """
+    Membership in deterministic_scorers() is not the gate. The deploy job reads
+    conf/release_gate.yaml; a scored-but-ungated metric is a chart, not a control.
+    """
+    from era.eval.scorers import deterministic_scorers
+
+    names = {getattr(s, "__name__", "") or getattr(s, "name", "")
+             for s in deterministic_scorers()}
+    assert any("synthetic_disclosure" in str(n) for n in names)
+
+    gate = run_eval.load_gate()
+    assert "synthetic_disclosure" in (gate.get("blocking") or {}), (
+        "synthetic_disclosure must be a blocking threshold in conf/release_gate.yaml"
+    )
+    assert float(gate["blocking"]["synthetic_disclosure"]) == 1.0
+
+
+def test_the_generated_document_questions_are_in_the_dataset():
+    """
+    A corpus that can produce invented figures needs golden questions that ask for
+    them, or the gate never exercises the disclosure path.
+    """
+    ids = {q.id for q in datasets.ALL}
+    assert {"gov-004", "gov-005", "gov-006"} <= ids
+    assert datasets.get("gov-006").expected_facts, "false-premise case needs expectations"

@@ -126,6 +126,22 @@ def _search_tool(question: str, sensitivity: Sensitivity) -> list[dict]:
     return [dataclasses.asdict(r) for r in response.results]
 
 
+def _contents_tool(urls: list[str], sensitivity: Sensitivity) -> list[dict]:
+    from era.tools import you_fast
+
+    warehouse = _env(ENV_WAREHOUSE)
+    if not warehouse:
+        raise RuntimeError(f"{ENV_WAREHOUSE} is not set")
+    pages = you_fast.contents(
+        urls,
+        catalog=_env(ENV_CATALOG),
+        schema=_env(ENV_SCHEMA),
+        executor=you_fast.WarehouseExecutor(warehouse),
+        sensitivity=sensitivity,
+    )
+    return [dataclasses.asdict(r) for r in pages]
+
+
 def _research_tool(question: str, sensitivity: Sensitivity) -> str:
     from era.tools import you_research
 
@@ -145,6 +161,7 @@ def build_tools() -> ToolBundle:
         ask_documents=_documents_tool if _env(ENV_KA) else None,
         query_data=_data_tool if _env(ENV_GENIE) else None,
         search=_search_tool if _env(ENV_WAREHOUSE) else None,
+        contents=_contents_tool if _env(ENV_WAREHOUSE) else None,
         submit_research=_research_tool if os.environ.get("YOU_API_KEY") else None,
     )
 

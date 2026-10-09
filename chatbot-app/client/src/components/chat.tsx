@@ -3,6 +3,7 @@ import { useChat } from '@ai-sdk/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSWRConfig } from 'swr';
 import { ChatHeader } from '@/components/chat-header';
+import { SummaryStrip } from '@/components/summary/summary-strip';
 import { fetchWithErrorHandlers, generateUUID } from '@/lib/utils';
 import { MultimodalInput } from './multimodal-input';
 import { Messages } from './messages';
@@ -220,6 +221,7 @@ export function Chat({
     <>
       <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
         <ChatHeader />
+        <SummaryStrip />
 
         <Messages
           chatId={id}

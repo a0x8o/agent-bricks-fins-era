@@ -108,12 +108,22 @@ def plan_node(state: dict[str, Any], *, llm: Callable[[str, str], str]) -> dict[
         "internal_documents": "internal_documents" in lowered,
         "internal_data": "internal_data" in lowered,
         "web_search": "web_search" in lowered,
+        "web_contents": "web_contents" in lowered,
         "web_research": "web_research" in lowered,
         "rationale": raw.strip(),
     }
     # A plan that selects nothing is a planning failure, not a decision to answer
     # from memory. Fall back to internal sources, which are always permissible.
-    if not any(plan[k] for k in ("internal_documents", "internal_data", "web_search", "web_research")):
+    if not any(
+        plan[k]
+        for k in (
+            "internal_documents",
+            "internal_data",
+            "web_search",
+            "web_contents",
+            "web_research",
+        )
+    ):
         plan["internal_documents"] = True
         plan["internal_data"] = True
     return {"plan": plan, "stage": STAGE_ACT}
@@ -169,6 +179,30 @@ def act_node(
         except Exception as exc:
             logger.warning("web search failed: %s", exc)
             notices.append(f"External search failed: {exc}")
+
+    # Page extraction is a follow-on to search: it needs URLs a tool actually
+    # returned. Planned without search, or after a refused/empty search, it degrades
+    # with a notice rather than inventing pages.
+    if plan.get("web_contents") and tools.contents:
+        urls = [item["url"] for item in external if item.get("url")]
+        if not urls:
+            notices.append(
+                "Page extraction was planned but no search URLs were available."
+            )
+        else:
+            try:
+                pages = tools.contents(urls[:8], sensitivity)
+                by_url = {p.get("url"): p for p in pages if p.get("url")}
+                for item in external:
+                    extra = by_url.pop(item.get("url"), None)
+                    if extra and extra.get("markdown"):
+                        item["markdown"] = extra["markdown"]
+                external.extend(by_url.values())
+            except PolicyError as exc:
+                notices.append(f"Page extraction was blocked by policy: {exc}")
+            except Exception as exc:
+                logger.warning("web contents failed: %s", exc)
+                notices.append(f"Page extraction failed: {exc}")
 
     # Submit deep research only once per thread, and only if nothing is in flight.
     if plan.get("web_research") and tools.submit_research and not research_task_id and not state.get("research_result"):
@@ -297,11 +331,13 @@ class ToolBundle:
         ask_documents: Callable[[str], dict] | None = None,
         query_data: Callable[[str], dict] | None = None,
         search: Callable[[str, Sensitivity], list[dict]] | None = None,
+        contents: Callable[[list[str], Sensitivity], list[dict]] | None = None,
         submit_research: Callable[[str, Sensitivity], str] | None = None,
     ):
         self.ask_documents = ask_documents
         self.query_data = query_data
         self.search = search
+        self.contents = contents
         self.submit_research = submit_research
 
 

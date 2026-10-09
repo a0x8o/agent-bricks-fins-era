@@ -106,9 +106,10 @@ def upload_file_to_volume(spark, local_file_path: str, catalog: str, schema: str
                     )
 
                 print(f"Uploaded {relative_path}")
-    except:
-        logger.error(f"Error uploading to databricks volume")
-        print('upload to volume failed')
+    except Exception:
+        logger.exception("Error uploading to Databricks volume")
+        print("upload to volume failed")
+        raise
 
 def create_tables_from_volume_subfolders(spark, catalog, schema, volume_name, logger):
     """Create tables for each subfolder in the volume.

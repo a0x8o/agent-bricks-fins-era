@@ -1,0 +1,607 @@
+# ---------------------------------------------------------------------------
+# Content for the generated documents.
+#
+# These eight organisations publish no filing this demo can download - they are
+# private, nonprofit, foreign-listed, or have suspended reporting. See the
+# `real_source_note` on each entry in companies.yaml for what genuinely exists.
+#
+# WHAT IS TRUE HERE AND WHAT IS NOT
+# ---------------------------------
+# `overview`, `segments` and the risk *themes* describe each organisation as it is
+# publicly known to operate: Providence really is a nonprofit Catholic health
+# system across the western states, Henkel really does run Adhesive Technologies
+# and Consumer Brands. That context is what makes the demo read as real work.
+#
+# Every number under `financials` and `operating_metrics` is invented. Not
+# approximated, not sourced - invented. They exist so a retrieval question has
+# something specific to retrieve and so cross-company comparisons have something
+# to compare. They must never be quoted as fact about the real organisation, which
+# is why the generator stamps a warning on the cover, in the running header of
+# every page, in the filename, and in the corpus manifest.
+#
+# If you replace any of these with a real document, drop the `source: synthetic`
+# in companies.yaml at the same time. The two must stay in step.
+# ---------------------------------------------------------------------------
+
+fiscal_year: 2025
+
+profiles:
+
+  ford_direct:
+    tagline: Digital marketing and commerce platform for the Ford dealer network
+    overview: >-
+      FordDirect is a joint venture between Ford Motor Company and its franchised
+      Ford and Lincoln dealers, formed to give the dealer network shared digital
+      infrastructure that no single dealership could build alone. It operates
+      dealer websites, digital advertising programs, inventory merchandising, and
+      customer lead routing that connects online shoppers to local dealers. Its
+      economics are unusual: it is funded by participating dealers and the
+      manufacturer rather than by outside shareholders, so it is measured on
+      dealer participation and lead quality rather than on earnings per share.
+    segments:
+      - name: Dealer Website Platform
+        description: >-
+          Hosted storefronts for franchised dealers, including inventory display,
+          finance calculators, service scheduling and trade-in valuation tools.
+      - name: Digital Advertising Services
+        description: >-
+          Co-funded search, social and display advertising placed on behalf of
+          dealers, with attribution reporting back to vehicle sales.
+      - name: Lead Management and Analytics
+        description: >-
+          Routing of online shopper enquiries to dealers, plus reporting on lead
+          conversion, market coverage and campaign performance.
+    risk_factors:
+      - title: Dependence on a single manufacturer relationship
+        text: >-
+          Substantially all activity derives from the Ford and Lincoln dealer
+          network. A change in Ford Motor Company's retail strategy, its dealer
+          agreements, or its direct-to-consumer approach would directly affect
+          participation and revenue, and the venture has no meaningful business
+          outside that network to offset it.
+      - title: Dealer participation is voluntary
+        text: >-
+          Participation is elective for most programs. Dealers facing margin
+          pressure reduce discretionary marketing spend first, so participation
+          revenue is correlated with the same conditions that reduce vehicle
+          sales, amplifying rather than smoothing cyclical downturns.
+      - title: Shifts in digital advertising platforms
+        text: >-
+          Advertising delivery depends on third-party platforms whose pricing,
+          targeting capability and privacy rules change without negotiation.
+          Restrictions on third-party cookies and device identifiers have reduced
+          attribution precision and raised the cost of reaching in-market buyers.
+      - title: Electric vehicle transition changes the shopping journey
+        text: >-
+          Electric vehicle shoppers research differently, weigh charging access
+          and incentives heavily, and are more willing to buy across brands.
+          Merchandising and lead tools built for internal combustion inventory
+          require sustained reinvestment to remain relevant.
+    financials:
+      Total revenue: $612 million
+      Revenue growth: 7.4%
+      Operating income: $48 million
+      Operating margin: 7.8%
+      Technology and platform investment: $94 million
+      Cash and equivalents: $137 million
+    operating_metrics:
+      Participating dealers: 2,930
+      Dealer websites operated: 3,140
+      Shopper leads routed: 18.6 million
+      Average lead-to-sale conversion: 9.2%
+      Employees: 620
+    outlook: >-
+      Priorities are consolidating the website platform onto a single rendering
+      stack, expanding first-party data collection to offset the loss of
+      third-party identifiers, and building merchandising specific to electric
+      vehicles. Participation is expected to grow modestly, with revenue growth
+      dependent on advertising co-funding levels rather than dealer count.
+
+  addepar:
+    tagline: Data and analytics platform for wealth and investment management
+    overview: >-
+      Addepar is a privately held software company whose platform aggregates
+      portfolio data across custodians, asset classes and ownership structures,
+      then reports and analyses it for advisers and their clients. Its core
+      problem is that a wealthy family's assets sit in many places - brokerage
+      accounts, private funds, direct real estate, operating businesses - and
+      arrive in inconsistent formats. Registered investment advisers, family
+      offices, private banks and endowments use the platform for consolidated
+      reporting, performance attribution and client presentation.
+    segments:
+      - name: Platform Subscriptions
+        description: >-
+          Recurring licence revenue for portfolio aggregation, reporting and
+          analytics, priced primarily on assets administered on the platform.
+      - name: Data Integration Services
+        description: >-
+          Custodial feed onboarding, historical data conversion and validation of
+          alternative-asset positions that lack standard pricing feeds.
+      - name: Marketplace and Adjacent Services
+        description: >-
+          Access to third-party investment products, trading and billing
+          workflows that sit alongside the reporting platform.
+    risk_factors:
+      - title: Revenue concentration in assets administered
+        text: >-
+          Pricing tied to assets on the platform means revenue moves with market
+          levels. A sustained drawdown in equity and alternative asset valuations
+          would reduce revenue without a corresponding fall in the cost of
+          operating the platform, compressing margin at exactly the point clients
+          scrutinise costs most closely.
+      - title: Dependence on third-party custodial data
+        text: >-
+          Aggregation depends on data feeds from custodians and fund
+          administrators that are outside our control. Format changes, outages or
+          restrictions on programmatic access require engineering rework and can
+          delay client reporting cycles.
+      - title: Alternative asset data quality
+        text: >-
+          Private funds, direct real estate and operating company interests are
+          reported irregularly and inconsistently. Valuation lags and restatements
+          flow into client reporting, and errors in this data are visible to end
+          clients rather than only to advisers.
+      - title: Competition from incumbent portfolio systems
+        text: >-
+          Established portfolio accounting vendors and custodian-owned platforms
+          compete on bundled pricing and existing integration. Switching costs
+          protect installed clients but equally slow new client acquisition.
+      - title: Private company capital dependence
+        text: >-
+          As a private company we fund growth from operating cash flow and private
+          capital rather than public markets. A tightening in private financing
+          conditions would constrain investment in platform development.
+    financials:
+      Annual recurring revenue: $412 million
+      Revenue growth: 21.0%
+      Gross margin: 74.0%
+      Research and development spend: $148 million
+      Operating loss: $(36) million
+      Cash and equivalents: $290 million
+    operating_metrics:
+      Assets administered on platform: $6.4 trillion
+      Client firms: 1,180
+      Net revenue retention: 114%
+      Custodial integrations maintained: 340
+      Employees: 1,050
+    outlook: >-
+      Investment is concentrated on alternative-asset data quality, faster
+      onboarding of new client firms, and analytics that operate across ownership
+      structures rather than single accounts. Growth is expected to continue to
+      track assets administered, leaving results sensitive to market levels.
+
+  ucla_health:
+    tagline: Academic health system of the University of California, Los Angeles
+    overview: >-
+      UCLA Health is the academic health system of the University of California,
+      Los Angeles, operating hospitals and a large ambulatory network across the
+      Los Angeles basin alongside the David Geffen School of Medicine. Its
+      hospitals include Ronald Reagan UCLA Medical Center, UCLA Santa Monica
+      Medical Center, the Resnick Neuropsychiatric Hospital and Mattel Children's
+      Hospital. As part of a public university system it carries a tripartite
+      mission - clinical care, medical education and research - which means its
+      cost structure is not comparable to that of a community hospital operator.
+    segments:
+      - name: Acute Hospital Services
+        description: >-
+          Inpatient acute and quaternary care including transplant, oncology,
+          cardiovascular, neurosciences and level I trauma services.
+      - name: Ambulatory and Community Network
+        description: >-
+          Primary and specialty care delivered through clinics distributed across
+          the region, together with urgent care and ambulatory surgery.
+      - name: Academic and Research Mission
+        description: >-
+          Graduate medical education, clinical trials and sponsored research
+          conducted with the David Geffen School of Medicine.
+    risk_factors:
+      - title: Payer mix and government reimbursement
+        text: >-
+          A substantial share of patient revenue comes from Medicare and Medi-Cal,
+          which reimburse below the cost of delivering care. Changes to
+          supplemental payment programs or state budget pressure would reduce net
+          patient revenue without any change in the volume or acuity of care
+          delivered.
+      - title: Clinical workforce availability and cost
+        text: >-
+          Nursing and allied health labour markets in Southern California remain
+          tight, and collective bargaining agreements across the university system
+          set multi-year cost commitments. Reliance on contract labour to cover
+          vacancies carries a significant premium over employed staff.
+      - title: Quaternary case mix concentration
+        text: >-
+          Financial performance depends disproportionately on complex, high-acuity
+          services such as transplant and cancer care. Loss of clinical program
+          leadership, or a change in referral relationships with regional
+          hospitals, would affect results out of proportion to case volume.
+      - title: Research funding dependence
+        text: >-
+          The research mission depends on federal grant funding whose indirect
+          cost recovery does not fully cover the cost of the facilities and
+          administration supporting it. Reductions in federal research funding
+          shift that burden onto clinical operations.
+      - title: Seismic and facility compliance obligations
+        text: >-
+          California hospital seismic safety requirements impose scheduled
+          structural obligations on acute facilities. Meeting these deadlines
+          requires sustained capital expenditure that competes with clinical
+          program investment.
+    financials:
+      Total operating revenue: $9.1 billion
+      Net patient service revenue: $7.6 billion
+      Operating margin: 2.4%
+      Research grants and contracts: $1.1 billion
+      Capital expenditure: $780 million
+      Days cash on hand: 214
+    operating_metrics:
+      Licensed beds: 1,090
+      Inpatient discharges: 62,400
+      Ambulatory visits: 3.4 million
+      Emergency department visits: 186,000
+      Employees: 31,500
+    outlook: >-
+      Capital planning is dominated by seismic compliance and ambulatory network
+      expansion closer to where patients live. Operating margin is expected to
+      remain thin, with performance driven by payer mix, contract labour
+      dependence and the pace at which capacity constraints in quaternary
+      services can be relieved.
+
+  providence:
+    tagline: Nonprofit Catholic health system across the western United States
+    overview: >-
+      Providence is a nonprofit Catholic health system founded by the Sisters of
+      Providence, operating hospitals, clinics, senior services and home care
+      across the western United States, including Alaska, Washington, Oregon,
+      California, Montana, New Mexico and Texas. Its mission commitment to serve
+      the poor and vulnerable shapes its financial profile: it maintains services
+      in rural communities where volumes do not cover fixed costs, and reports
+      community benefit as a core output rather than a residual.
+    segments:
+      - name: Acute Care Hospitals
+        description: >-
+          Inpatient and emergency services across a multi-state hospital network
+          spanning urban tertiary centres and rural critical access facilities.
+      - name: Ambulatory and Physician Enterprise
+        description: >-
+          Employed and affiliated physician groups, ambulatory surgery, imaging
+          and urgent care operating under regional clinical leadership.
+      - name: Senior and Community Services
+        description: >-
+          Home health, hospice, supportive housing and community health programs
+          delivered under the system's mission commitments.
+    risk_factors:
+      - title: Rural facility economics
+        text: >-
+          A meaningful share of facilities serve rural communities where patient
+          volumes are insufficient to cover fixed operating costs. These sites are
+          maintained for mission reasons and are cross-subsidised by urban
+          tertiary operations, so any deterioration in the urban portfolio
+          transmits directly into rural service viability.
+      - title: Labour cost structure
+        text: >-
+          Nursing labour markets across the western states remain constrained and
+          an increasing share of the workforce is covered by collective bargaining
+          agreements. Wage growth has persistently outpaced reimbursement growth.
+      - title: Government payer concentration
+        text: >-
+          Medicare, Medicaid and state-specific programs account for the majority
+          of patient revenue across the footprint. Because several states in the
+          footprint fund supplemental programs differently, a change in any single
+          state's Medicaid financing can move consolidated results.
+      - title: Investment portfolio volatility
+        text: >-
+          Operating results are thin relative to the size of the investment
+          portfolio that supports the balance sheet. Reported excess of revenue
+          over expenses is therefore driven substantially by investment returns
+          rather than by operating performance, and can swing sharply between
+          periods.
+      - title: Catastrophic climate exposure
+        text: >-
+          Facilities in the western footprint are exposed to wildfire, seismic
+          events and extreme heat. Evacuation, service interruption and rising
+          property insurance costs represent a growing operating expense.
+    financials:
+      Total operating revenue: $30.2 billion
+      Operating margin: 0.9%
+      Excess of revenue over expenses: $1.4 billion
+      Community benefit provided: $2.1 billion
+      Capital expenditure: $1.6 billion
+      Days cash on hand: 168
+    operating_metrics:
+      Hospitals operated: 51
+      Licensed beds: 8,900
+      Clinic locations: 1,050
+      Annual patient encounters: 27 million
+      Employees: 122,000
+    outlook: >-
+      Focus remains on returning core operations to a sustainable margin
+      independent of investment returns, consolidating administrative functions
+      across regions, and shifting volume from inpatient to ambulatory settings
+      while preserving rural access commitments.
+
+  summa_health:
+    tagline: Integrated health system serving northeast Ohio
+    overview: >-
+      Summa Health is an integrated health system serving the Akron region of
+      northeast Ohio, operating acute care hospitals, a physician network and a
+      health plan. Operating both the provider and the insurance side of care in a
+      single regional market is the defining feature of its economics: it bears
+      both the cost of delivering care and the risk of paying for it, which
+      smooths some volatility and concentrates other risk. The system has been the
+      subject of an ownership conversion from nonprofit status.
+    segments:
+      - name: Hospital Operations
+        description: >-
+          Acute care delivered principally through the Akron Campus and St. Thomas
+          Campus, including emergency, cardiovascular and behavioural health
+          services.
+      - name: Physician Network
+        description: >-
+          Employed primary care and specialty physicians operating across the
+          region under a single clinical organisation.
+      - name: Health Plan
+        description: >-
+          Regional insurance operations offering Medicare Advantage and commercial
+          products to employers and individuals in the service area.
+    risk_factors:
+      - title: Single-market concentration
+        text: >-
+          Operations are concentrated in one regional economy. Local employment
+          conditions, the fortunes of a small number of large regional employers,
+          and demographic decline in the service area affect both patient volumes
+          and health plan enrolment simultaneously, with no geographic
+          diversification to offset them.
+      - title: Combined provider and payer risk
+        text: >-
+          Operating a health plan alongside delivery means adverse medical cost
+          trends are absorbed twice: once as unreimbursed cost of care and again
+          as claims expense on insured lives. Pricing the plan requires
+          forecasting utilisation a year ahead of the premiums that fund it.
+      - title: Medicare Advantage rate and risk adjustment changes
+        text: >-
+          Health plan results depend on Medicare Advantage benchmark rates and
+          risk adjustment methodology. Changes to either affect plan margin
+          directly and are set administratively rather than negotiated.
+      - title: Ownership conversion and integration
+        text: >-
+          A change of ownership structure introduces execution risk, new capital
+          expectations and transitional commitments regarding service lines and
+          community obligations that may constrain operating flexibility.
+      - title: Competition from larger regional systems
+        text: >-
+          Larger systems in adjacent markets compete for both patients and
+          clinical staff, with greater scale to absorb fixed technology and
+          administrative costs.
+    financials:
+      Total operating revenue: $2.4 billion
+      Health plan premium revenue: $760 million
+      Operating margin: 1.2%
+      Medical loss ratio: 87.4%
+      Capital expenditure: $131 million
+      Days cash on hand: 122
+    operating_metrics:
+      Hospital campuses: 2
+      Licensed beds: 1,030
+      Employed physicians and providers: 1,300
+      Health plan members: 132,000
+      Employees: 7,900
+    outlook: >-
+      Priorities are stabilising health plan medical cost trend, integrating the
+      physician network onto a single clinical record, and completing the
+      transition in ownership structure while maintaining regional service
+      commitments.
+
+  nationwide:
+    tagline: Policyholder-owned mutual insurance and financial services group
+    overview: >-
+      Nationwide Mutual Insurance Company is a policyholder-owned mutual insurer
+      headquartered in Columbus, Ohio, operating across property and casualty
+      insurance, life insurance, retirement plan administration and specialty
+      lines including pet insurance. Because it is a mutual, it has no external
+      shareholders and no listed equity; capital is retained rather than
+      distributed, which permits a longer planning horizon than a public insurer
+      but removes access to equity markets as a source of capital.
+    segments:
+      - name: Property and Casualty
+        description: >-
+          Personal auto and homeowners insurance distributed through independent
+          agents, together with commercial lines for small business, agribusiness
+          and excess and surplus risks.
+      - name: Financial Services
+        description: >-
+          Life insurance, annuities and retirement plan administration for
+          individual and institutional customers.
+      - name: Specialty Lines
+        description: >-
+          Pet insurance and other specialty products distributed through direct,
+          employer and affinity channels.
+    risk_factors:
+      - title: Catastrophe exposure and reinsurance cost
+        text: >-
+          Homeowners and agribusiness portfolios carry concentrated exposure to
+          severe convective storms, wildfire and hurricane losses. Reinsurance
+          costs have risen materially and retentions have increased, meaning a
+          larger share of each event is absorbed before reinsurance responds.
+      - title: Personal auto loss cost severity
+        text: >-
+          Repair costs have risen faster than premium as vehicles incorporate
+          sensors and advanced driver assistance systems that make routine repairs
+          more expensive. Rate filings lag observed severity because they require
+          regulatory approval in each state.
+      - title: Interest rate sensitivity of life and annuity liabilities
+        text: >-
+          Long-duration life and annuity obligations are sensitive to interest
+          rate movements on both sides of the balance sheet. Rapid rate movement
+          in either direction affects reserve adequacy and the competitiveness of
+          crediting rates on in-force business.
+      - title: Mutual capital structure
+        text: >-
+          As a mutual we cannot raise equity capital externally. Capital is
+          generated by retained earnings and debt issuance, so a period of adverse
+          underwriting results constrains growth capacity more directly than it
+          would for a stock insurer.
+      - title: State-by-state regulatory approval
+        text: >-
+          Rates, forms and market conduct are regulated separately in every state.
+          Delays or denials of rate adequacy in individual states can force
+          reductions in writings in those markets.
+    financials:
+      Total revenue: $34.6 billion
+      Property and casualty net written premium: $16.8 billion
+      Combined ratio: 101.3%
+      Net investment income: $2.9 billion
+      Policyholder equity: $28.4 billion
+      Assets under management and administration: $340 billion
+    operating_metrics:
+      Policies in force: 21 million
+      Independent agencies appointed: 10,800
+      Retirement plan participants served: 2.6 million
+      Pet insurance policies in force: 1.3 million
+      Employees: 25,000
+    outlook: >-
+      Priorities are restoring property and casualty underwriting profitability
+      through rate adequacy and exposure management in catastrophe-exposed states,
+      continued growth in retirement plan administration, and maintaining capital
+      strength appropriate to a mutual without access to equity markets.
+
+  henkel:
+    tagline: Adhesive technologies and consumer brands, headquartered in Düsseldorf
+    overview: >-
+      Henkel AG & Co. KGaA is a German company listed in Frankfurt, operating in
+      two businesses: Adhesive Technologies, an industrial supplier of adhesives,
+      sealants and functional coatings, and Consumer Brands, covering laundry and
+      home care together with hair products. Its brand portfolio includes Loctite,
+      Persil, Schwarzkopf and Dial. The two businesses behave differently through a
+      cycle - the industrial side follows customer production volumes while the
+      consumer side follows household consumption and retailer inventory decisions.
+    segments:
+      - name: Adhesive Technologies
+        description: >-
+          Adhesives, sealants and functional coatings supplied to automotive,
+          electronics, packaging, aerospace and general industrial customers, plus
+          consumer and craftsmen adhesive brands.
+      - name: Consumer Brands - Laundry & Home Care
+        description: >-
+          Heavy-duty and specialty detergents, fabric care and household cleaning
+          products sold through grocery and mass retail channels.
+      - name: Consumer Brands - Hair
+        description: >-
+          Retail hair colouration and care products together with professional
+          salon products.
+    risk_factors:
+      - title: Raw material and energy price volatility
+        text: >-
+          Input costs track petrochemical feedstocks and European energy prices,
+          both of which move faster than pricing can be renegotiated with
+          industrial customers or retail buyers. European energy exposure in
+          particular is structural given the location of manufacturing capacity.
+      - title: Industrial demand cyclicality
+        text: >-
+          Adhesive Technologies volumes follow customer production schedules in
+          automotive and electronics. Destocking by industrial customers reduces
+          volumes sharply and with little notice, ahead of any change in
+          underlying end demand.
+      - title: Retailer concentration and private label
+        text: >-
+          Consumer Brands sells through a small number of large retail groups with
+          significant negotiating leverage, who also compete directly through
+          private-label alternatives in the same categories.
+      - title: Currency translation exposure
+        text: >-
+          Reporting in euro while generating a substantial share of sales in US
+          dollars and emerging market currencies means reported growth diverges
+          from organic growth, sometimes materially, without any change in
+          underlying performance.
+      - title: Regulatory change in chemical formulation
+        text: >-
+          European and other chemical regulations restrict specific substances used
+          in formulations. Reformulation requires laboratory work, customer
+          requalification in industrial applications, and inventory transition.
+    financials:
+      Group sales: €21.9 billion
+      Organic sales growth: 2.6%
+      Adjusted EBIT margin: 14.3%
+      Adhesive Technologies sales: €11.4 billion
+      Consumer Brands sales: €10.2 billion
+      Free cash flow: €1.9 billion
+    operating_metrics:
+      Production sites: 175
+      Countries with operations: 78
+      Employees: 47,000
+      Share of sales from top ten brands: 51%
+    outlook: >-
+      Management priorities are margin recovery in Consumer Brands through
+      portfolio pruning and pricing, continued share gains in high-value adhesive
+      applications such as electronics and electric vehicle assembly, and
+      reduction of European energy intensity in manufacturing.
+
+  munich_re:
+    tagline: Global reinsurance group with primary insurance operations
+    overview: >-
+      Münchener Rückversicherungs-Gesellschaft AG, known as Munich Re, is one of
+      the world's largest reinsurance groups, headquartered in Munich and listed
+      in Frankfurt. It writes property-casualty and life and health reinsurance
+      globally, operates specialty primary insurance, and owns the ERGO primary
+      insurance group. A reinsurer's results are shaped by two things that have
+      little to do with each other: the incidence of large natural catastrophes,
+      and the investment return on the float held against long-tail liabilities.
+    segments:
+      - name: Property-Casualty Reinsurance
+        description: >-
+          Treaty and facultative reinsurance covering natural catastrophe,
+          property, casualty, marine and aviation risks written globally.
+      - name: Life and Health Reinsurance
+        description: >-
+          Mortality, morbidity and longevity reinsurance, together with financially
+          motivated solutions for primary insurers.
+      - name: ERGO Primary Insurance
+        description: >-
+          Primary property-casualty, life and health insurance written principally
+          in Germany and selected international markets.
+    risk_factors:
+      - title: Natural catastrophe accumulation
+        text: >-
+          Results in any period are dominated by the incidence and severity of
+          natural catastrophes. Accumulation control across treaties limits but
+          does not eliminate the possibility that a single event, or a clustered
+          season, consumes the annual catastrophe budget several times over.
+      - title: Climate-driven loss trend
+        text: >-
+          Observed frequency and severity of secondary perils - severe convective
+          storm, wildfire, flood - have trended upward faster than historical
+          models implied. Pricing assumptions require continual recalibration
+          against a moving baseline rather than a stable one.
+      - title: Long-tail casualty reserve development
+        text: >-
+          US casualty lines are exposed to social inflation and expanding
+          liability theories that emerge years after the policy period. Reserves
+          established on prior years may prove inadequate as claims develop.
+      - title: Investment portfolio and interest rate risk
+        text: >-
+          A large fixed income portfolio backs long-duration liabilities. Rate
+          movements affect market values and reinvestment yields, and credit
+          deterioration in a stressed environment would coincide with the periods
+          in which claims paying capacity matters most.
+      - title: Cyber accumulation exposure
+        text: >-
+          Cyber reinsurance carries correlation risk that differs fundamentally
+          from natural catastrophe: a single vulnerability in widely deployed
+          software can trigger losses across an entire portfolio simultaneously,
+          without geographic limit.
+    financials:
+      Gross premiums written: €61.4 billion
+      Net result: €5.2 billion
+      Property-casualty reinsurance combined ratio: 84.6%
+      Return on investment: 3.1%
+      ERGO net result: €0.8 billion
+      Solvency II ratio: 269%
+    operating_metrics:
+      Countries with operations: 50
+      Employees: 43,000
+      Major natural catastrophe events retained: 34
+      Reinsurance treaty renewals negotiated: 4,200
+    outlook: >-
+      Priorities are maintaining underwriting discipline through the pricing cycle
+      rather than chasing volume, recalibrating secondary peril models, careful
+      growth in cyber with explicit accumulation limits, and continued cost
+      reduction at ERGO.

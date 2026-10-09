@@ -1,0 +1,35 @@
+# ERA overlay — Declarative Automation Bundle resources.
+#
+# Workshop attendees hit the Agent Bricks Multi-Agent Supervisor (Layer A),
+# not this agent. These jobs are the Databricks-native path for the ERA
+# overlay: an offline release gate, and a post-deploy permission repair for
+# the chatbot app.
+#
+# The serving endpoint itself is created by `python -m era.agent.log_and_deploy
+# --deploy` after Milestone A is verified. Bundling an endpoint that points at
+# a UC model version that does not exist yet would fail `databricks bundle
+# deploy` for every instructor who has not logged the model.
+
+resources:
+  jobs:
+    era_release_gate:
+      name: era-release-gate
+      description: >
+        Score era/eval/fixtures.example.json with deterministic scorers and
+        fail unless conf/release_gate.yaml blocking thresholds pass.
+      tasks:
+        - task_key: offline_gate
+          notebook_task:
+            notebook_path: ../setup_instructor/run_era_release_gate.py
+            source: WORKSPACE
+
+    grant_app_mas_permissions:
+      name: grant-app-mas-permissions
+      description: >
+        Re-apply CAN_QUERY on the MAS and every sub-agent serving endpoint
+        for the chatbot app. Run after chatbot-app bundle deploy.
+      tasks:
+        - task_key: grant
+          notebook_task:
+            notebook_path: ../setup_instructor/grant_app_mas_permissions.py
+            source: WORKSPACE

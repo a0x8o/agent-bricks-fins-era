@@ -5,6 +5,7 @@ import { SidebarToggle } from '@/components/sidebar-toggle';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from './ui/sidebar';
 import { PlusIcon, CloudOffIcon } from 'lucide-react';
+import { PoweredByYou } from '@/components/you/you-logo';
 import { useConfig } from '@/hooks/use-config';
 import { WorkspacePanelToggle } from '@/components/workspace-panel/workspace-panel-toggle';
 import {
@@ -55,6 +56,7 @@ export function ChatHeader() {
       )}
 
       <div className="ml-auto flex items-center gap-2">
+        <PoweredByYou className="hidden sm:inline-flex" />
         <WorkspacePanelToggle />
       </div>
     </header>

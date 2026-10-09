@@ -272,6 +272,67 @@ def governance_refusal(outputs: Any, expectations: dict | None = None) -> Feedba
     return Feedback(value=1.0, rationale="Refusal correctly surfaced to the user.")
 
 
+_SYNTHETIC_DISCLOSURE_MARKERS = (
+    "synthetic",
+    "generated document",
+    "generated reference",
+    "illustrative",
+    "not a real filing",
+    "no such filing",
+    "does not publish",
+    "publishes no",
+    "not publicly available",
+)
+
+
+@scorer(name="synthetic_disclosure", aggregations=["mean"])
+def synthetic_disclosure(outputs: Any) -> Feedback:
+    """
+    If the answer leaned on a generated document, did it say so?
+
+    Eight organisations in the corpus publish nothing that could be downloaded, so
+    their documents are written for the demo and every figure in them is invented.
+    Those documents are watermarked, which stops a *reader* being fooled - but the
+    reader only sees the answer, not the source. An answer that repeats an invented
+    revenue figure as though it came from a filing has laundered the watermark away,
+    and that is a worse failure than refusing outright: it is confident, specific and
+    wrong, about a real organisation.
+
+    Scored only when the run actually used such a document, so it stays at 1.0 for
+    every question that touched real filings alone.
+    """
+    answer, evidence = _answer_and_evidence(outputs)
+
+    used = [
+        lineage for lineage in evidence.internal_lineage
+        if "synthetic" in lineage.lower()
+    ]
+    if not used:
+        return Feedback(value=1.0, rationale="No generated documents were used.")
+
+    # Scan the prose only. The lineage inside an [IV:...] tag contains the filename,
+    # which contains the word SYNTHETIC - so scanning the raw answer would let every
+    # citation of a generated document mark its own homework, including the answers
+    # this scorer exists to catch.
+    prose = re.sub(r"\[IV:[^\]]*\]", " ", answer)
+    lowered = prose.lower()
+    if any(marker in lowered for marker in _SYNTHETIC_DISCLOSURE_MARKERS):
+        return Feedback(
+            value=1.0,
+            rationale=(
+                f"Used {len(used)} generated document(s) and told the reader so."
+            ),
+        )
+    return Feedback(
+        value=0.0,
+        rationale=(
+            f"Answer draws on {len(used)} generated document(s) - e.g. "
+            f"{used[0]} - but never tells the reader the figures are illustrative "
+            f"rather than reported."
+        ),
+    )
+
+
 @scorer(name="denylist_respected", aggregations=["mean"])
 def denylist_respected(outputs: Any) -> Feedback:
     """
@@ -318,6 +379,7 @@ def deterministic_scorers() -> list:
         internal_grounding,
         freshness,
         governance_refusal,
+        synthetic_disclosure,
         denylist_respected,
     ]
 

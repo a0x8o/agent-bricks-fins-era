@@ -6,6 +6,8 @@ import type {
 } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { cn } from '@/lib/utils';
+import { YouLogo } from '@/components/you/you-logo';
+import { isYouComUrl } from '@/lib/you-com';
 
 /**
  * ReactMarkdown/Streamdown component that handles Databricks message citations.
@@ -62,8 +64,11 @@ const DatabricksMessageCitationRenderer = (
           href={props.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-md bg-muted-foreground px-2 py-0 text-zinc-200"
+          className="inline-flex items-center gap-1 rounded-md bg-muted-foreground px-2 py-0 text-zinc-200"
         >
+          {isYouComUrl(props.href) && (
+            <YouLogo className="size-3 text-zinc-200" title="You.com" />
+          )}
           {props.children}
         </DefaultAnchor>
       </TooltipTrigger>

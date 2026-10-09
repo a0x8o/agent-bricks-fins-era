@@ -30,14 +30,30 @@ resources:
   apps:
     databricks_chatbot:
       name: ${var.app_name}-${var.resource_name_suffix}
-      description: "Mag7 Financial Analysis Chatbot powered by Agent Bricks Multi-Agent Supervisor"
+      description: "Financial research chatbot — Agent Bricks MAS with You.com live web"
       source_code_path: .
+      # User authorization: first-open consent so the app can query serving,
+      # SQL, and Genie as the signed-in user when the workspace has user
+      # authorization enabled. Service-principal grants (notebook 06 / grant
+      # job) still cover workspaces without that preview.
+      user_api_scopes:
+        - serving.serving-endpoints
+        - sql
+        - dashboards.genie
       resources:
         - name: serving-endpoint
-          description: "Multi-Agent Supervisor serving endpoint"
+          description: "Multi-Agent Supervisor serving endpoint (Layer A workshop default)"
           serving_endpoint:
             name: ${var.serving_endpoint_name}
             permission: CAN_QUERY
+        # Sub-agent CAN_QUERY (KA, and any other serving-endpoint children of the
+        # MAS) cannot be declared here: Agent Bricks allocates those names at
+        # create time. Notebook 06 PATCHes them onto the app; after a bundle-only
+        # redeploy re-run:
+        #   python resources/grant_app_mas_permissions.py
+        #   or: databricks bundle run grant_app_mas_permissions
+        # from the repo root. Do not add dummy extra serving_endpoint resources —
+        # an empty name fails deploy.
         - name: database
           description: "Lakebase database instance for persistent chat history"
           database:

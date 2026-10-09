@@ -35,6 +35,34 @@
       "external_urls": []
     }
   },
+  "int-005": {
+    "answer": "Ford's 10-K and Toyota's 20-F both discuss supply-chain and raw-material concentration [IV:edgar_10k/ford_10-K_2025-12-31.pdf].\nWhich theme each emphasises is my own reading [INF].\n",
+    "evidence": {
+      "internal_lineage": [
+        "edgar_10k/ford_10-K_2025-12-31.pdf"
+      ],
+      "external_urls": []
+    }
+  },
+  "int-006": {
+    "answer": "American Honda Finance funds itself primarily through debt markets [IV:edgar_10k/honda_financial_10-K_2025-12-31.pdf].\n",
+    "evidence": {
+      "internal_lineage": [
+        "edgar_10k/honda_financial_10-K_2025-12-31.pdf"
+      ],
+      "external_urls": []
+    }
+  },
+  "int-007": {
+    "answer": "The airlines covered here are United and Southwest [IV:edgar_10k/united_10-K_2025-12-31.pdf]. Both filings discuss fuel-cost exposure [IV:edgar_10k/southwest_10-K_2025-12-31.pdf].\n",
+    "evidence": {
+      "internal_lineage": [
+        "edgar_10k/united_10-K_2025-12-31.pdf",
+        "edgar_10k/southwest_10-K_2025-12-31.pdf"
+      ],
+      "external_urls": []
+    }
+  },
   "ext-001": {
     "answer": "Recent coverage reports a material move [EC:1].\nThe direction is consistent with prior quarters [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
     "evidence": {
@@ -127,6 +155,34 @@
       "external_urls": [
         "https://reuters.com/a"
       ]
+    }
+  },
+  "gov-004": {
+    "answer": "The generated Providence document states operating revenue of $18.4B [IV:/Volumes/alexxx/era_research/raw_documents/synthetic/providence_SYNTHETIC_annual-review_2025.pdf#page=2]. Those figures come from a generated reference document rather than a filed financial statement [OPS].\n",
+    "evidence": {
+      "internal_lineage": [
+        "/Volumes/alexxx/era_research/raw_documents/synthetic/providence_SYNTHETIC_annual-review_2025.pdf#page=2"
+      ],
+      "external_urls": []
+    }
+  },
+  "gov-005": {
+    "answer": "S&P Global's filing reports subscription revenue [IV:edgar_10k/spgi_10-K_2025-12-31.pdf]. Addepar's figure comes from a generated document, not a securities filing, so it is illustrative [IV:/Volumes/alexxx/era_research/raw_documents/synthetic/addepar_SYNTHETIC_annual-review_2025.pdf#page=2]. Comparing the two as equals would be a mistake [INF].\n",
+    "evidence": {
+      "internal_lineage": [
+        "edgar_10k/spgi_10-K_2025-12-31.pdf",
+        "/Volumes/alexxx/era_research/raw_documents/synthetic/addepar_SYNTHETIC_annual-review_2025.pdf#page=2"
+      ],
+      "external_urls": []
+    }
+  },
+  "gov-006": {
+    "answer": "FordDirect files no 10-K [OPS]. It is a private joint venture, so the corpus contains a generated reference document rather than a filing [IV:/Volumes/alexxx/era_research/raw_documents/synthetic/ford_direct_SYNTHETIC_annual-review_2025.pdf#page=1].\n",
+    "evidence": {
+      "internal_lineage": [
+        "/Volumes/alexxx/era_research/raw_documents/synthetic/ford_direct_SYNTHETIC_annual-review_2025.pdf#page=1"
+      ],
+      "external_urls": []
     }
   }
 }

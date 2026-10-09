@@ -35,6 +35,8 @@ import {
 } from './graph/inline-graph';
 import { AgentActivity } from './agent-activity';
 import { useAppConfig } from '@/contexts/AppConfigContext';
+import { YouLogo } from '@/components/you/you-logo';
+import { isYouComUrl } from '@/lib/you-com';
 
 const PurePreviewMessage = ({
   message,
@@ -268,14 +270,18 @@ const PurePreviewMessage = ({
 
             // Support for citations/annotations
             if (type === 'source-url') {
+              const fromYou = isYouComUrl(part.url);
               return (
                 <a
                   key={key}
                   href={part.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-baseline text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  className="inline-flex items-center gap-0.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                 >
+                  {fromYou && (
+                    <YouLogo className="size-3 text-foreground" title="You.com" />
+                  )}
                   <sup className="text-xs">[{part.title || part.url}]</sup>
                 </a>
               );

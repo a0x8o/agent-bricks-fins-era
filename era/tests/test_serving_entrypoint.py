@@ -89,6 +89,7 @@ def test_tools_are_gated_on_their_own_configuration(monkeypatch):
     assert tools.ask_documents is not None
     assert tools.query_data is not None
     assert tools.search is None, "search needs a warehouse and must stay off without one"
+    assert tools.contents is None, "contents shares the warehouse gate with search"
 
 
 def test_missing_audit_config_is_loud_not_silent(caplog):

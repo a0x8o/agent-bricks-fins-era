@@ -4,20 +4,18 @@ import {
   BarChart3,
   BookOpenText,
   Database,
-  Globe,
   Sparkles,
 } from 'lucide-react';
+import { YouLogo } from '@/components/you/you-logo';
 
 interface AgentDef {
   id: string;
   label: string;
   icon: typeof Database;
   caption: string;
+  you?: boolean;
 }
 
-// The child agents orchestrated by the Mag7 Multi-Agent Supervisor. The
-// activity view cycles through them to communicate that work is happening
-// while the (slow) supervisor routes and synthesizes.
 const AGENTS: AgentDef[] = [
   {
     id: 'ka',
@@ -29,7 +27,7 @@ const AGENTS: AgentDef[] = [
     id: 'genie',
     label: 'Genie · SQL',
     icon: Database,
-    caption: 'Querying market data across the MAG7…',
+    caption: 'Querying governed ticker tables…',
   },
   {
     id: 'charts',
@@ -39,9 +37,10 @@ const AGENTS: AgentDef[] = [
   },
   {
     id: 'web',
-    label: 'Web Search',
-    icon: Globe,
-    caption: 'Scanning the latest web results…',
+    label: 'You.com',
+    icon: Database,
+    caption: 'Searching live web and news via You.com…',
+    you: true,
   },
 ];
 
@@ -109,7 +108,11 @@ export function AgentActivity() {
                   : 'border-transparent bg-muted/50 text-muted-foreground',
               ].join(' ')}
             >
-              <Icon className="h-3.5 w-3.5" />
+              {agent.you ? (
+                <YouLogo className="h-3.5 w-3.5 text-foreground" />
+              ) : (
+                <Icon className="h-3.5 w-3.5" />
+              )}
               <span className="whitespace-nowrap">{agent.label}</span>
               {isActive && (
                 <motion.span

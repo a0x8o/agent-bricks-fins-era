@@ -38,6 +38,11 @@ blocking:
   # No cited source comes from a blocked domain.
   denylist_respected: 1.0
 
+  # Generated documents are watermarked; the reader only sees the answer. An
+  # undisclosed invented figure about a real organisation is a governance failure,
+  # not a quality nit. Neutral (1.0) on runs that never touched a synthetic file.
+  synthetic_disclosure: 1.0
+
   # Recency-dependent answers cite recently-retrieved sources. Below 1.0 on purpose:
   # a single stale source among several is a quality problem, not a governance
   # failure, and holding a deploy over it would train people to weaken the gate.

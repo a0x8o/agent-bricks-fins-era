@@ -184,14 +184,22 @@ no evidence, and are always structurally valid. This widens the three-label cont
 in the spec — drop it if you would rather keep the taxonomy at three, but the refusal
 path needs some answer to this.
 
-### Still to do for Milestone C
+### Serving story
 
-- Repoint `chatbot-app/` at the code-first endpoint (it already speaks the
-  ResponsesAgent streaming contract) and keep Lakebase history.
-- Log/register the agent to Unity Catalog and extend `databricks.yml` with the new
-  resources. Databricks' current guidance is DABs rather than a separate deploy call,
-  and era already has a bundle, so that is the path.
-- Both need a verified Milestone A first.
+The **workshop chatbot stays on the Agent Bricks MAS** (Layer A). That is the
+lab attendees run. ERA deploys to a **separate** endpoint (`era-supervisor`) via
+`python -m era.agent.log_and_deploy --deploy` and is never swapped in by a
+bundle deploy of `chatbot-app/`.
+
+Databricks-native controls around that overlay:
+
+- `databricks bundle run era_release_gate` — offline fixtures + `conf/release_gate.yaml`. Exit 0 is the contract.
+- `databricks bundle run grant_app_mas_permissions` — re-binds CAN_QUERY on the MAS and every sub-agent after an app-only bundle deploy (those names cannot be declared in `chatbot-app/databricks.yml` until Agent Bricks allocates them).
+- Repointing `DATABRICKS_SERVING_ENDPOINT` at `era-supervisor` is a deliberate later step: the app already speaks ResponsesAgent streaming. Do it only after Milestone A is verified and the gate is green.
+
+Background You.com research still needs `era/agent/research_worker.py` as a
+separate process; the served path uses `run_turn` and does not wait out a
+research tail inside the request.
 
 ## Egress policy
 

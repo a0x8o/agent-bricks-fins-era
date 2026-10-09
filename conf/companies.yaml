@@ -1,0 +1,350 @@
+# ---------------------------------------------------------------------------
+# The company universe this demo covers.
+#
+# One entry per organisation. Everything downstream reads this file and nothing
+# else: the EDGAR fetcher (resources/fetch_filings.py) decides what to download,
+# the synthetic generator (resources/generate_synthetic_docs.py) decides what to
+# write, the ticker loader decides what to price, and 05b builds the graph from
+# it. Add an organisation here and the whole pipeline picks it up.
+#
+# THE `source` FIELD IS THE IMPORTANT ONE
+# --------------------------------------
+#   edgar     - a real SEC registrant. Filings are downloaded from EDGAR, are
+#               public domain, and can be cited as evidence like any real filing.
+#   synthetic - NOT a real document. No such filing exists, either because the
+#               organisation is private (Ford Direct, Addepar), is a US nonprofit
+#               that files no securities reports (UCLA Health, Providence, Summa),
+#               reports outside the SEC (Henkel, Munich Re), or has suspended
+#               periodic reporting (Nationwide). The generator writes a clearly
+#               watermarked document instead.
+#
+# Every synthetic document is stamped SYNTHETIC in its title, its running header,
+# its filename, and the corpus manifest, because this demo's entire claim is that
+# an answer can be traced to its evidence. A fabricated filing that reads like a
+# real one attributed to a real organisation would quietly break that claim. If
+# you make the documents look more realistic, keep the watermarks.
+#
+# `real_source_note` records what genuinely exists for each synthetic entity, so
+# anyone who wants to swap in the real document knows where to look.
+# ---------------------------------------------------------------------------
+
+# CIK, registrant name, SIC and ticker below were resolved from EDGAR
+# (data.sec.gov/submissions) on 2026-08-10, not typed from memory.
+
+defaults:
+  # Forms pulled per registrant. 10-Q adds a quarter of recency for the
+  # comparison questions; drop it to halve corpus build time.
+  forms: ["10-K", "10-Q"]
+  fiscal_year: 2025
+
+companies:
+
+  # ---- Automotive -------------------------------------------------------
+  - slug: ford
+    name: Ford Motor Company
+    aliases: ["Ford", "Ford Motor Co"]
+    sector: Automotive
+    industry: Motor Vehicles & Passenger Car Bodies
+    source: edgar
+    cik: 37996
+    ticker: F
+    sic: 3711
+
+  - slug: ford_direct
+    name: FordDirect
+    aliases: ["Ford Direct"]
+    sector: Automotive
+    industry: Automotive Digital Marketing
+    source: synthetic
+    ticker: null
+    relationships:
+      - type: joint_venture_of
+        target: ford
+    real_source_note: >-
+      FordDirect is a private joint venture between Ford Motor Company and its
+      franchised dealers. It issues no securities and files nothing with the SEC.
+      The only public financial commentary about it appears inside Ford Motor
+      Company's own filings.
+
+  - slug: toyota
+    name: Toyota Motor Corporation
+    aliases: ["Toyota"]
+    sector: Automotive
+    industry: Motor Vehicles & Passenger Car Bodies
+    source: edgar
+    cik: 1094517
+    ticker: TM
+    sic: 3711
+    forms: ["20-F"]
+    note: Foreign private issuer - files 20-F, not 10-K.
+
+  - slug: honda_motor
+    name: Honda Motor Co., Ltd.
+    aliases: ["Honda"]
+    sector: Automotive
+    industry: Motor Vehicles & Passenger Car Bodies
+    source: edgar
+    cik: 715153
+    ticker: HMC
+    sic: 3711
+    forms: ["20-F"]
+    note: >-
+      Not in the requested list, but included as the parent of American Honda
+      Finance so the ownership edge in the graph terminates somewhere real.
+
+  - slug: honda_financial
+    name: American Honda Finance Corporation
+    aliases: ["Honda Financial", "Honda Financial Services", "AHFC"]
+    sector: Captive Finance
+    industry: Personal Credit Institutions
+    source: edgar
+    cik: 864270
+    ticker: null
+    sic: 6141
+    relationships:
+      - type: subsidiary_of
+        target: honda_motor
+    note: >-
+      A debt-only SEC registrant: it files a full 10-K but has no listed equity,
+      so it has a CIK and no ticker. This is why the ticker table and the company
+      universe are not the same list.
+
+  # ---- Pharmaceuticals & Biotech ---------------------------------------
+  - slug: pfizer
+    name: Pfizer Inc.
+    aliases: ["Pfizer"]
+    sector: Pharmaceuticals
+    industry: Pharmaceutical Preparations
+    source: edgar
+    cik: 78003
+    ticker: PFE
+    sic: 2834
+
+  - slug: merck
+    name: Merck & Co., Inc.
+    aliases: ["Merck", "MSD"]
+    sector: Pharmaceuticals
+    industry: Pharmaceutical Preparations
+    source: edgar
+    cik: 310158
+    ticker: MRK
+    sic: 2834
+    note: >-
+      Merck & Co. (US, Rahway NJ). Distinct from Merck KGaA (Darmstadt), which is
+      a different company and is not covered here.
+
+  - slug: amgen
+    name: Amgen Inc.
+    aliases: ["Amgen"]
+    sector: Biotechnology
+    industry: Biological Products
+    source: edgar
+    cik: 318154
+    ticker: AMGN
+    sic: 2836
+
+  - slug: regeneron
+    name: Regeneron Pharmaceuticals, Inc.
+    aliases: ["Regeneron"]
+    sector: Biotechnology
+    industry: Pharmaceutical Preparations
+    source: edgar
+    cik: 872589
+    ticker: REGN
+    sic: 2834
+
+  # ---- Health systems & digital health ---------------------------------
+  - slug: hinge_health
+    name: Hinge Health, Inc.
+    aliases: ["Hinge Health"]
+    sector: Digital Health
+    industry: Services-Computer Programming & Data Processing
+    source: edgar
+    cik: 1673743
+    ticker: HNGE
+    sic: 7374
+
+  - slug: ucla_health
+    name: UCLA Health
+    aliases: ["UCLA Health System", "UCLA Medical Center"]
+    sector: Health Systems
+    industry: Academic Medical Center
+    source: synthetic
+    ticker: null
+    real_source_note: >-
+      UCLA Health is part of the Regents of the University of California, a
+      public university system. It files no securities reports. Real financial
+      disclosure exists in the UC system's audited annual financial reports and
+      in municipal bond official statements on MSRB EMMA.
+
+  - slug: providence
+    name: Providence
+    aliases: ["Providence Health", "Providence St. Joseph Health"]
+    sector: Health Systems
+    industry: Nonprofit Health System
+    source: synthetic
+    ticker: null
+    real_source_note: >-
+      A nonprofit health system. No SEC filings. Real disclosure exists in its
+      audited consolidated financial statements, IRS Form 990, and municipal
+      bond continuing-disclosure filings on MSRB EMMA.
+
+  - slug: summa_health
+    name: Summa Health
+    aliases: ["Summa"]
+    sector: Health Systems
+    industry: Nonprofit Health System
+    source: synthetic
+    ticker: null
+    real_source_note: >-
+      An Ohio health system, historically nonprofit and the subject of a
+      for-profit conversion. No SEC filings. Real disclosure has appeared in IRS
+      Form 990, audited financial statements, and EMMA bond disclosures.
+
+  # ---- Chemicals & industrials -----------------------------------------
+  - slug: dow
+    name: Dow Inc.
+    aliases: ["Dow", "DOW"]
+    sector: Chemicals
+    industry: Plastic Materials & Synthetic Resins
+    source: edgar
+    cik: 1751788
+    ticker: DOW
+    sic: 2821
+
+  - slug: john_deere
+    name: Deere & Company
+    aliases: ["John Deere", "Deere"]
+    sector: Industrial Machinery
+    industry: Farm Machinery & Equipment
+    source: edgar
+    cik: 315189
+    ticker: DE
+    sic: 3523
+
+  - slug: rockwell_automation
+    name: Rockwell Automation, Inc.
+    aliases: ["Rockwell", "Rockwell Automation"]
+    sector: Industrial Machinery
+    industry: Measuring & Controlling Devices
+    source: edgar
+    cik: 1024478
+    ticker: ROK
+    sic: 3829
+
+  - slug: henkel
+    name: Henkel AG & Co. KGaA
+    aliases: ["Henkel"]
+    sector: Consumer Goods
+    industry: Adhesives & Consumer Brands
+    source: synthetic
+    ticker: HENKY
+    real_source_note: >-
+      A German issuer listed in Frankfurt. It files no SEC periodic reports; its
+      real disclosure is the English-language annual report published on its own
+      investor relations site, which is copyrighted rather than public domain.
+      HENKY is an ADR and does carry a full daily price history, so this company
+      appears in the ticker table and Genie even though its document is generated.
+
+  # ---- Airlines & logistics --------------------------------------------
+  - slug: united_airlines
+    name: United Airlines Holdings, Inc.
+    aliases: ["United Airlines", "United"]
+    sector: Airlines
+    industry: Air Transportation, Scheduled
+    source: edgar
+    cik: 100517
+    ticker: UAL
+    sic: 4512
+
+  - slug: southwest_airlines
+    name: Southwest Airlines Co.
+    aliases: ["Southwest Airlines", "Southwest"]
+    sector: Airlines
+    industry: Air Transportation, Scheduled
+    source: edgar
+    cik: 92380
+    ticker: LUV
+    sic: 4512
+
+  - slug: jb_hunt
+    name: J.B. Hunt Transport Services, Inc.
+    aliases: ["JB Hunt", "J.B. Hunt"]
+    sector: Transportation & Logistics
+    industry: Trucking
+    source: edgar
+    cik: 728535
+    ticker: JBHT
+    sic: 4213
+
+  # ---- Financial information & insurance --------------------------------
+  - slug: sp_global
+    name: S&P Global Inc.
+    aliases: ["S&P Global", "Standard & Poors Global", "Standard and Poor's"]
+    sector: Financial Information
+    industry: Consumer Credit Reporting & Ratings
+    source: edgar
+    cik: 64040
+    ticker: SPGI
+    sic: 7320
+
+  - slug: nationwide
+    name: Nationwide Mutual Insurance Company
+    aliases: ["Nationwide", "Nationwide Insurance", "Nationwide Life"]
+    sector: Insurance
+    industry: Life & Property Insurance
+    source: synthetic
+    ticker: null
+    real_source_note: >-
+      Nationwide Mutual is policyholder-owned and files nothing with the SEC. Its
+      subsidiary Nationwide Life Insurance Company (CIK 205695) was an SEC
+      registrant but suspended periodic reporting after its 2010 10-K under Rule
+      12h-7; it still files POS AM and 424B3 prospectuses, which carry audited
+      financial statements, and statutory detail appears in NAIC filings.
+
+  - slug: slide_insurance
+    name: Slide Insurance Holdings, Inc.
+    aliases: ["Slide Insurance", "Slide"]
+    sector: Insurance
+    industry: Fire, Marine & Casualty Insurance
+    source: edgar
+    cik: 1886428
+    ticker: SLDE
+    sic: 6331
+
+  - slug: ryan_specialty
+    name: Ryan Specialty Holdings, Inc.
+    aliases: ["Ryan Specialty"]
+    sector: Insurance
+    industry: Insurance Agents & Brokers
+    source: edgar
+    cik: 1849253
+    ticker: RYAN
+    sic: 6411
+
+  - slug: munich_re
+    name: Münchener Rückversicherungs-Gesellschaft AG
+    aliases: ["Munich Re", "MunichRe", "Munich Reinsurance"]
+    sector: Insurance
+    industry: Reinsurance
+    source: synthetic
+    ticker: MURGY
+    real_source_note: >-
+      A German reinsurer listed in Frankfurt. No SEC periodic reports; its real
+      disclosure is the English-language group annual report on its own investor
+      relations site, which is copyrighted rather than public domain. MURGY is an
+      ADR with a full daily price history, so this company appears in the ticker
+      table and Genie even though its document is generated.
+
+  # ---- Wealth technology -------------------------------------------------
+  - slug: addepar
+    name: Addepar, Inc.
+    aliases: ["Addepar"]
+    sector: Wealth Technology
+    industry: Investment Management Software
+    source: synthetic
+    ticker: null
+    real_source_note: >-
+      A privately held software company. No public securities, no SEC filings,
+      and no published audited financials. Everything public about its finances
+      is press coverage of private funding rounds.

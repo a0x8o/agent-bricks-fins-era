@@ -14,7 +14,7 @@ By the end of this lab, you'll have created:
 4. **Multi-Agent Supervisor**: Orchestrates all agents to answer complex financial questions
 5. **Chatbot App**: Full-stack web application with chat UI, persistent history, and Vega-Lite rendering
 6. **(Optional) External MCP Server**: Adds real-time web search capabilities via You.com
-7. **(Optional) GraphRAG MCP Server**: Adds graph-based stock knowledge queries via a Databricks App — no external database required
+7. **(Optional) GraphRAG UC functions**: Adds graph-based company knowledge queries (`get_company_summary`, `compare_companies`) over Delta tables — no external graph database, no MCP server
 
 ## Architecture
 
@@ -42,11 +42,11 @@ By the end of this lab, you'll have created:
                     ┌──────────────────┼──────────────────┐
                     ▼                                     ▼
      ┌────────────────────────────┐    ┌────────────────────────────┐
-     │ You.com MCP (Web Search)  │    │ GraphRAG MCP (Stock Graph) │
+     │ You.com search (UC fn / MCP)│    │ GraphRAG UC functions      │
      │                           │    │                            │
-     │ Real-time news, market    │    │ Company fundamentals,      │
-     │ updates, general search   │    │ trading day graph, streak  │
-     │ (requires You.com API key)│    │ queries (Databricks-native)│
+     │ Real-time news, market    │    │ get_company_summary,       │
+     │ updates (03b free-tier or │    │ compare_companies over     │
+     │ 05 MCP with API key)      │    │ graphrag_* Delta tables    │
      └────────────────────────────┘    └────────────────────────────┘
 
                                        │
@@ -67,14 +67,14 @@ By the end of this lab, you'll have created:
 - Permissions to create catalogs, schemas, volumes, tables, functions, and Agent Bricks
 - Access to the Databricks UI for monitoring and testing Agent Bricks
 - **(Optional)** A [You.com API key](https://documentation.you.com/quickstart#get-your-api-key) for adding web search capabilities via MCP server
-- **(Optional)** Databricks Apps enabled in the workspace for GraphRAG MCP server
+- **(Optional)** SQL warehouse the app service principal can use, if you enable pro-mode Graph / Data Explorer tabs
 
 ## Setup Scripts Overview
 
 This workshop includes automated setup notebooks in the `setup_instructor/` folder:
 
 - **`config.py`**: **[CONFIGURE FIRST]** Central configuration file for catalog, schema, volume names, and supervisor agent name
-- **Table setup notebook**: Creates ticker data tables in Unity Catalog
+- **Table setup notebook**: `setup_instructor/00_tables_setup.ipynb` — schema, volume, uploads `data/`, ticker tables
 - **`01_instructor_setup_ka.ipynb`**: Creates Knowledge Assistant with 5 knowledge sources
 - **`02_instructor_setup_genie.ipynb`**: Creates Genie space for ticker data analysis
 - **`03_create_vegalite_uc_function_simple.ipynb`**: Creates Unity Catalog visualization function
@@ -82,7 +82,7 @@ This workshop includes automated setup notebooks in the `setup_instructor/` fold
 - **`06_deploy_chatbot_app.ipynb`**: Deploys Chatbot App with Lakebase database and all permissions
 - **`06b_deploy_chatbot_app_pro_OPTIONAL.ipynb`**: **(Optional)** Switches the app into **pro mode** — adds an interactive knowledge-graph view, a data explorer, an embedded Genie + AI/BI dashboard, and a richer multi-agent "thinking" stream (requires `05b`)
 - **`05_create_mcp_server_OPTIONAL.ipynb`**: **(Optional)** Adds You.com web search MCP server to the Supervisor
-- **`05b_create_ontobricks_graphrag_OPTIONAL.ipynb`**: **(Optional)** Deploys a GraphRAG MCP server as a Databricks App and wires it into the Supervisor
+- **`05b_create_ontobricks_graphrag_OPTIONAL.ipynb`**: **(Optional)** Builds `graphrag_*` tables and registers `get_company_summary` / `compare_companies` UC functions (wired by notebook 04)
 
 These notebooks handle the complex configuration automatically, allowing you to focus on testing and understanding the multi-agent workflows.
 
@@ -128,11 +128,11 @@ These notebooks handle the complex configuration automatically, allowing you to 
 20. Attach MCP server to the Supervisor Agent
 21. Test web search capabilities in multi-agent workflows
 
-### Phase 8: GraphRAG MCP Server (Optional)
-22. Build a stock knowledge graph from ticker data as Delta tables
-23. Deploy a FastMCP server as a Databricks App
-24. Create a UC connection and wire it into the Supervisor Agent
-25. Test graph-based queries (company fundamentals, comparisons, trading day lookups)
+### Phase 8: GraphRAG UC functions (Optional)
+22. Build a company knowledge graph from `conf/companies.yaml` + ticker data as Delta tables
+23. Register `get_company_summary` / `compare_companies` as SQL Unity Catalog functions
+24. Re-run notebook 04 so the Supervisor picks them up as function tools
+25. Test graph-based queries (company fundamentals, comparisons, ownership)
 
 ---
 
@@ -153,7 +153,7 @@ All data, Genie Spaces, and agents will be created in the catalog, schema, and v
    schema = "brandon_cowen"                     # Your schema name (use your username)
    table = "parsed_data"                        # Table for document metadata
    volume_name = "raw_documents"                # Volume for document storage
-   sa_name = "Supervisor_Agent_Mag7"            # Supervisor Agent name
+   sa_name = "Supervisor_Agent_ERA"            # Supervisor Agent name
    ```
 
 2. **Update with your workspace details**:
@@ -198,17 +198,45 @@ data/
 
 **This is your first execution step after configuring `config.py`.**
 
-1. **Open the table setup notebook** in the `resources/` folder
-   - Notebook handles data ingestion and table creation
+1. **Open `setup_instructor/00_tables_setup.ipynb`**
+   - Creates catalog/schema/volume if missing, uploads `data/`, builds per-folder tables
    - Uses serverless compute (no cluster required)
 
 2. **Run all cells in the notebook**:
    - Creates catalog and schema (if they don't exist)
    - Creates Unity Catalog volume for documents
-   - Uploads all 153 financial documents to the volume
-   - Downloads ticker data for "Magnificent 7" companies (AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA)
-   - Creates and populates `ticker_data` table
+   - Uploads everything under `data/` to the volume, mirroring the folder structure
+   - Builds `ticker_data` from the CSV already in `data/ticker_data/` (Mag7 plus every
+     listed company in `conf/companies.yaml` once you have refreshed that CSV)
+   - To refresh prices, run `resources/download_ticker_data.py` on Databricks **before**
+     `00_tables_setup` — the setup notebook does not call yfinance itself
    - Includes price, volume, and financial metrics
+
+### Step 0.1 (recommended): Build the extended document corpus
+
+The repo ships the original Mag7 filings. The cross-industry corpus is built by two
+scripts, driven by `conf/companies.yaml`, before you run the notebook above:
+
+```bash
+# Real SEC filings (10-K/10-Q, and 20-F for Toyota and Honda) -> data/edgar_10k, data/edgar_10q
+# SEC requires a User-Agent that identifies you with a contact address.
+python resources/fetch_filings.py --user-agent "Your Name you@example.com"
+
+# Generated reference documents for organisations that publish no filing -> data/synthetic
+python resources/generate_synthetic_docs.py
+```
+
+Both write `data/corpus_manifest.json`, which records for every document which filing it
+came from (accession number, source URL, checksum) or that it was generated. The PDFs are
+gitignored — they are reproducible from the manifest.
+
+**Eight of the organisations publish nothing that can be downloaded**, so their documents
+are generated with invented figures: FordDirect and Addepar (private), UCLA Health,
+Providence and Summa Health (nonprofits that file no securities reports), Nationwide (a
+mutual that suspended SEC reporting in 2010), and Henkel and Munich Re (German issuers).
+Every page of those documents is watermarked `SYNTHETIC DOCUMENT - NOT A REAL FILING`, they
+are indexed as a separate Knowledge Assistant source, and the agent is instructed to say so
+whenever it uses one. Nothing in them should be quoted as fact about the real organisation.
 
 3. **Monitor progress**:
    - Watch for confirmation messages after each step
@@ -421,7 +449,7 @@ Expected results:
 
 2. **What the setup notebook does**:
    - Loads configuration from `config.py`
-   - Creates a Multi-Agent Supervisor named `Supervisor_Agent_Mag7` (or whatever `sa_name` is set to in `config.py`)
+   - Creates a Multi-Agent Supervisor named from `sa_name` in `config.py`
    - Automatically discovers and configures agents for:
      - **Knowledge Assistant**: Financial document analysis (found by name: `Financial_Analysis_Assistant`)
      - **Genie Space**: SQL queries against ticker data (found by name: `Financial_Data_Explorer`)
@@ -430,7 +458,7 @@ Expected results:
    - Adds sample conversation starters demonstrating multi-tool workflows
 
 3. **Supervisor Configuration**:
-   - **Name**: `Supervisor_Agent_Mag7` (configurable via `sa_name` in `config.py`)
+   - **Name**: the `sa_name` value from `config.py`
    - **Description**: `A multi-agent supervisor that coordinates financial analysis using Knowledge Assistant for document analysis, Genie for SQL queries, and Unity Catalog functions for data visualization`
    - **Agents**: 3 specialized agents working together
    - **Instructions**: Specialized coordination prompts for financial workflow orchestration
@@ -451,7 +479,7 @@ Expected results:
 
 3. **Verify in Databricks workspace**:
    - Navigate to Machine Learning > Agents
-   - Look for `Supervisor_Agent_Mag7`
+   - Look for the supervisor named in `config.py` (`sa_name`)
    - Check that all 3 agents are configured correctly
    - Wait for status to show "ONLINE"
 
@@ -658,18 +686,35 @@ Create an HTTP connection in Unity Catalog named `you-mcp` that points to the Yo
 
 ---
 
-## Phase 8: GraphRAG MCP Server (Optional)
+## Phase 8: GraphRAG Knowledge Graph (Optional)
 
-This optional phase deploys a **graph-backed Retrieval-Augmented Generation (GraphRAG)** service entirely within Databricks — no external graph database required. The notebook builds a stock knowledge graph from the existing `ticker_data` table, deploys it as a FastMCP server running on a Databricks App, and wires it into the Supervisor Agent via a UC HTTP connection.
+This optional phase builds a **graph-backed Retrieval-Augmented Generation (GraphRAG)**
+layer entirely within Databricks — no external graph database required. The notebook builds
+a knowledge graph over the company universe and exposes it to the Supervisor as **SQL Unity
+Catalog functions**.
+
+> **Not an MCP server.** An earlier version deployed a FastMCP server as a Databricks App.
+> That path is unusable through the Agent Bricks MCP proxy on streaming requests
+> (`httpx.ResponseNotRead`, ML-63338), so the graph is exposed as UC functions instead.
 
 ### Why GraphRAG?
 
 Graph structures let the Supervisor answer **relationship-centric** questions that are awkward in flat SQL:
-- "What are NVDA's fundamentals and recent trading activity?" → Company node properties + TRADED_ON traversal
-- "Compare AAPL, MSFT, and NVDA side by side" → Multi-node comparison across Company vertices
-- "What does the stock knowledge graph contain?" → Schema-aware introspection
+- "What are Ford's fundamentals and recent trading activity?" → Company node properties + TRADED_ON traversal
+- "Compare Pfizer, Merck and Amgen side by side" → Multi-node comparison across Company vertices
+- "Who owns FordDirect?" → an ownership edge to Ford Motor Company
 
-The graph encodes **Company** nodes (7 Mag-7 stocks with fundamentals), **TradingDay** nodes (\~1,750 with prices/volumes/returns), **TRADED_ON** edges (company → trading day ownership), and **NEXT_DAY** edges (temporal chains for streak/momentum queries).
+The graph encodes **Company** nodes (one per organisation in `conf/companies.yaml` plus the
+Mag7, with fundamentals where the company is listed), **TradingDay** nodes with
+prices/volumes/returns, and edges for trading history (`TRADED_ON`, `NEXT_DAY`), sector and
+index membership, return correlation, real ownership (`SUBSIDIARY_OF`,
+`JOINT_VENTURE_OF`), and document provenance (`HAS_DOCUMENT_SOURCE`, distinguishing real
+filings from generated documents).
+
+**The company universe comes from the manifest, not from `ticker_data`.** A third of these
+organisations have no ticker — including American Honda Finance, which files a full 10-K
+without listed equity — and deriving the graph from the price table would drop every one of
+them.
 
 ### Step 8.1: Run the GraphRAG Setup Notebook
 
@@ -679,36 +724,37 @@ The graph encodes **Company** nodes (7 Mag-7 stocks with fundamentals), **Tradin
    - Uses serverless compute automatically
 
 2. **What the setup notebook does**:
-   - Loads configuration from `config.py` (all names are parameterized)
-   - Transforms `ticker_data` into graph DataFrames (Company + TradingDay vertices, TRADED_ON + NEXT_DAY edges)
+   - Loads configuration from `config.py` and the company universe from `conf/companies.yaml`
+   - Builds Company vertices for every organisation, joining market data where it exists
+   - Builds TradingDay vertices and the TRADED_ON / NEXT_DAY chains from `ticker_data`
    - Writes `{catalog}.{schema}.graphrag_vertices` and `{catalog}.{schema}.graphrag_edges` as Delta tables
-   - Generates a FastMCP server app (`main.py`, `app.yaml`, `requirements.txt`)
-   - Deploys the app as `ontobricks-graphrag-{suffix}` via the Databricks Apps REST API
-   - Creates a UC HTTP connection `ontobricks-graphrag-{suffix}` with bearer token auth
-   - Runs smoke tests to verify graph data integrity
+   - Appends sector, index, ownership, document-provenance, risk-tier and correlation edges
+   - Creates the `get_company_summary` and `compare_companies` UC functions, which accept
+     a ticker **or** a company name
+   - Runs smoke tests, including one asserting that unlisted companies are not labelled
+     high-beta purely because they have no beta
 
 3. **Artifacts created**:
-   - **Delta Tables**: `graphrag_vertices` (1,757 rows) and `graphrag_edges` (3,493 rows) in your catalog/schema
-   - **Databricks App**: `ontobricks-graphrag-{suffix}` running a FastMCP server with 3 tools
-   - **UC Connection**: `ontobricks-graphrag-{suffix}` (HTTP + bearer token)
+   - **Delta Tables**: `graphrag_vertices` and `graphrag_edges` in your catalog/schema
+   - **UC Functions**: `get_company_summary`, `compare_companies` (ticker or company name)
 
-4. **MCP Tools exposed by the app**:
-   - `query_graph(query)` — Natural-language graph queries routed to company lookups, comparisons, or schema info
-   - `get_company_summary(ticker)` — Deep-dive on one company: fundamentals + last 10 trading days
-   - `compare_companies(tickers)` — Side-by-side comparison; pass comma-separated tickers like `"AAPL,MSFT,NVDA"`
+4. **Tools the Supervisor gets** (after notebook 04 discovers them):
+   - `get_company_summary(company)` — one organisation: fundamentals + recent trading days
+   - `compare_companies(companies)` — side-by-side; names or tickers, comma-separated
 
 ### Step 8.2: Wire GraphRAG into the Supervisor
 
-The notebook automatically creates the UC connection. To add it to the Supervisor Agent, either:
-- Re-run **`04_instructor_setup_sa.ipynb`** — it discovers UC connections dynamically and will pick up the new one
-- Or manually add the connection via the Supervisor Agent UI in the workspace
+Notebook **04** discovers the two UC functions by full name and registers them as
+Supervisor tools (`agent_type: function`). Re-run **`04_instructor_setup_sa.ipynb`**
+if the Supervisor already existed before 05b. There is no MCP connection and no
+GraphRAG Databricks App in this path.
 
-After wiring, the Supervisor will have up to 5 agents (depending on which optional phases you completed):
+After wiring, the Supervisor will have up to these tools (depending on optional phases):
 - **Financial_Documents_Assistant** (serving-endpoint)
 - **Ticker_Data_Explorer** (genie-space)
 - **Chart_Generator** (unity-catalog-function)
-- **You_Web_Search** (external-mcp-server) — if Phase 7 completed
-- **OntoBricks_GraphRAG** (external-mcp-server) — GraphRAG stock knowledge graph
+- **You.com search functions** (unity-catalog-function) — if 03b or Phase 7 completed
+- **get_company_summary / compare_companies** (unity-catalog-function) — GraphRAG
 
 ### Step 8.3: Test GraphRAG Queries
 
@@ -737,17 +783,20 @@ After completing all phases, you should have:
 
 1. **Data Infrastructure**:
    - Unity Catalog: `{your_catalog}.{your_schema}`
-   - Volume: `/Volumes/{your_catalog}/{your_schema}/raw_documents/` (153 documents)
-   - Table: `{your_catalog}.{your_schema}.ticker_data` (7 companies, historical data)
+   - Volume: `/Volumes/{your_catalog}/{your_schema}/raw_documents/` — the committed Mag7
+     documents, plus (if you ran the corpus scripts) 34 real SEC filings under
+     `edgar_10k/` and `edgar_10q/` and 8 generated documents under `synthetic/`
+   - Table: `{your_catalog}.{your_schema}.ticker_data` (26 symbols, ~1 year of daily history)
 
 2. **Agent Bricks**:
    - **Knowledge Assistant**: `Financial_Analysis_Assistant` (ONLINE)
    - **Genie Space**: `Financial_Data_Explorer` (configured)
    - **UC Function**: `{catalog}.{schema}.generate_vega_lite_spec` (registered)
-   - **Multi-Agent Supervisor**: `Supervisor_Agent_Mag7` (ONLINE)
+   - **Multi-Agent Supervisor**: `sa_name` from `config.py` (ONLINE)
    - **Chatbot App**: `agent-bricks-chatbot-workshop` (RUNNING) with Lakebase persistence
    - **(Optional) MCP Server**: `You_Web_Search` via `you-mcp` connection (web search)
-   - **(Optional) GraphRAG MCP**: `ontobricks-graphrag-{suffix}` Databricks App + UC connection (stock knowledge graph)
+   - **(Optional) GraphRAG**: `graphrag_vertices` / `graphrag_edges` tables + the
+     `get_company_summary` and `compare_companies` UC functions (company knowledge graph)
 
 ### Comprehensive Test Questions
 
@@ -864,18 +913,18 @@ Your multi-agent system should be able to:
    - **API key**: Obtain one at [documentation.you.com/quickstart](https://documentation.you.com/quickstart#get-your-api-key)
 
 8. **Supervisor Agent not found** (Phase 7/8):
-   - **Symptom**: `AssertionError: Supervisor Agent 'Supervisor_Agent_Mag7' not found`
+   - **Symptom**: `AssertionError: Supervisor Agent '<sa_name>' not found`
    - **Solution**: Run Phase 5 first to create the Supervisor, or verify `sa_name` in `config.py` matches the existing Supervisor name
 
-9. **GraphRAG app stays UNAVAILABLE** (Phase 8):
-   - **Symptom**: App state stuck on `UNAVAILABLE` for more than 5 minutes during deployment
-   - **Solution**: Check Compute > Apps in the workspace UI for error details; re-run cell 7 in the 05b notebook
-   - **Note**: First-time app creation takes 2-5 minutes for the container image to build
+9. **GraphRAG functions missing** (Phase 8):
+   - **Symptom**: Supervisor has no company-summary / compare tools
+   - **Solution**: Confirm 05b created `{catalog}.{schema}.get_company_summary` and re-run notebook 04
+   - **Check**: `SHOW FUNCTIONS IN {catalog}.{schema} LIKE 'get_company_summary'`
 
-10. **GraphRAG MCP tools return empty results** (Phase 8):
-    - **Symptom**: MCP tools respond but return no data
+10. **GraphRAG functions return empty results** (Phase 8):
+    - **Symptom**: Tools respond but return no data
     - **Solution**: Verify `graphrag_vertices` and `graphrag_edges` tables exist and are populated
-    - **Check**: Run `SELECT COUNT(*) FROM {catalog}.{schema}.graphrag_vertices;` — should return 1,757 rows
+    - **Check**: `SELECT COUNT(*) FROM `{catalog}`.`{schema}`.graphrag_vertices;`
 
 ### Getting Help
 
@@ -917,7 +966,7 @@ After completing this lab, consider these enhancements:
 
 5. **Add more external MCP servers**:
    - If you completed Phase 7, you already have web search via You.com
-   - If you completed Phase 8, you have a Databricks-native GraphRAG MCP server
+   - If you completed Phase 8, the Supervisor can call GraphRAG UC functions over the company graph
    - Explore additional MCP servers from the [Databricks Marketplace](https://docs.databricks.com/en/generative-ai/mcp/external-mcp/) for more external tool integrations
    - Consider building [custom MCP servers](https://docs.databricks.com/en/generative-ai/mcp/custom-mcp/) hosted as Databricks Apps for organization-specific APIs
 
@@ -930,13 +979,14 @@ agent-bricks-workshop/
 ├── config.py                              # ⚠️ CONFIGURE FIRST - catalog/schema/volume/sa_name settings
 ├── LAB_INSTRUCTIONS.md                    # This file - full lab guide
 ├── setup_instructor/
+│   ├── 00_tables_setup.ipynb              # ✅ Schema, volume, data upload, ticker tables
 │   ├── 01_instructor_setup_ka.ipynb       # ✅ Knowledge Assistant creation
 │   ├── 02_instructor_setup_genie.ipynb    # ✅ Genie space for ticker data
 │   ├── 03_create_vegalite_uc_function_simple.ipynb  # ✅ Unity Catalog function
 │   ├── 04_instructor_setup_sa.ipynb       # ✅ Multi-Agent Supervisor
 │   ├── 06_deploy_chatbot_app.ipynb        # ✅ Chatbot App + Lakebase deployment
 │   ├── 05_create_mcp_server_OPTIONAL.ipynb  # 🔧 (Optional) You.com MCP server
-│   ├── 05b_create_ontobricks_graphrag_OPTIONAL.ipynb  # 🔧 (Optional) GraphRAG MCP via Databricks App
+│   ├── 05b_create_ontobricks_graphrag_OPTIONAL.ipynb  # 🔧 (Optional) GraphRAG UC functions
 │   └── README.md                          # Setup documentation
 ├── chatbot-app/                              # Full-stack chatbot application
 │   ├── client/                            # React + Vite frontend
@@ -945,11 +995,12 @@ agent-bricks-workshop/
 │   ├── app.yaml                           # Databricks app runtime config
 │   └── databricks.yml                     # Asset bundle config (parameterized)
 ├── resources/
-│   ├── [table_setup_notebook]             # Infrastructure and data setup
 │   ├── data_setup_functions.py            # Helper functions for data setup
-│   ├── download_ticker_data.py            # Ticker data download utilities
+│   ├── download_ticker_data.py            # Optional ticker CSV refresh (yfinance)
 │   ├── brick_setup_functions.py           # Agent Bricks helper functions
-│   └── generate_vega_lite_spec.py         # Visualization function code
+│   ├── fetch_filings.py                   # EDGAR corpus builder
+│   ├── generate_synthetic_docs.py         # Watermarked synthetic PDFs
+│   └── grant_app_mas_permissions.py       # Re-bind MAS + sub-agent CAN_QUERY after app bundle deploy
 └── data/
     ├── 10k/, 10Q/, annual_reports/        # 153 financial documents
     ├── earning_releases/, earning_transcripts/
@@ -957,7 +1008,7 @@ agent-bricks-workshop/
 
 **Execution Order**:
 1. **First**: Update `config.py` with your catalog/schema/volume/sa_name/app settings
-2. **Second**: Run table setup notebook in `resources/`
+2. **Second**: Run `setup_instructor/00_tables_setup.ipynb`
 3. **Then**: Run setup notebooks 01-04 in `setup_instructor/` (in order)
 4. **Deploy App**: Run `06_deploy_chatbot_app` to deploy the chatbot with Lakebase
 5. **(Optional)**: Run `05_create_mcp_server_OPTIONAL` after completing step 3 and setting up a `you-mcp` UC connection

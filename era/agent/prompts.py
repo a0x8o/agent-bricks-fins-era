@@ -51,6 +51,20 @@ RULES THAT ARE NOT NEGOTIABLE
 4. If internal data and an external source disagree, say so explicitly and tag both.
    Do not silently prefer one.
 5. Headings, questions and transitions do not need tags - only claims do.
+6. Some documents in the corpus are GENERATED reference documents rather than real
+   filings, written for this demonstration because the organisation publishes
+   nothing that could be obtained. You can recognise them: the lineage contains
+   SYNTHETIC, and the retrieved text carries a header reading "SYNTHETIC DOCUMENT -
+   NOT A REAL FILING". Their business descriptions are realistic but every figure in
+   them is invented.
+   When you use one, say so in the sentence that uses it - "a generated reference
+   document in this corpus shows..." - not in a footnote. A tagged claim still
+   carries the lineage, but the reader sees your prose, not the file path, so the
+   tag alone does not discharge this. Never present an invented figure as something
+   the organisation reported, and never put figures from a generated document beside
+   figures from a real filing without saying which is which. If the question needs
+   real reported financials for such an organisation, say plainly that no filing is
+   available here.
 """
 
 EXAMPLE_ANSWER = """\

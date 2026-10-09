@@ -144,6 +144,44 @@ def _parse(raw: str) -> dict[str, Any]:
     return payload
 
 
+def _coerce_free_search(raw: str) -> dict[str, Any]:
+    """
+    Map the Milestone A free-tier MCP payload onto the Search API shape
+    ``you_fast.search`` already understands (``results.web[]`` / ``results.news[]``).
+    """
+    payload = _parse(raw)
+    if payload.get("results") and isinstance(payload["results"], dict):
+        return payload
+    web: list[dict] = []
+    news: list[dict] = []
+
+    def take(item: dict, section: str) -> None:
+        url = (item.get("url") or item.get("link") or "").strip()
+        if not url:
+            return
+        row = {
+            "url": url,
+            "title": item.get("title") or url,
+            "description": item.get("description") or item.get("snippet") or "",
+        }
+        (news if section == "news" else web).append(row)
+
+    results = payload.get("results")
+    if isinstance(results, list):
+        for item in results:
+            if isinstance(item, dict):
+                take(item, "web")
+    for key in ("web", "news", "organic"):
+        items = payload.get(key)
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, dict):
+                    take(item, "news" if key == "news" else "web")
+    if not web and not news:
+        raise ToolError(f"free-tier search returned no URLs: {str(payload)[:200]}")
+    return {"results": {"web": web, "news": news}}
+
+
 # ---------------------------------------------------------------------------
 # Search
 # ---------------------------------------------------------------------------
@@ -186,7 +224,20 @@ def search(
         {"name": "n", "value": str(count)},
         {"name": "include", "value": include_domains},
     ]
-    payload = _parse(executor.scalar(statement, params))
+    try:
+        payload = _parse(executor.scalar(statement, params))
+    except ToolError as exc:
+        # Paid Search (ydc-index.io) bills separately from Research. A 402 here
+        # means the key and connection are fine - fall back to the free-tier MCP
+        # function so the turn can still cite the open web.
+        if "402" not in str(exc):
+            raise
+        logger.warning("paid search 402; falling back to you_web_search: %s", exc)
+        fallback = executor.scalar(
+            f"SELECT {catalog}.{schema}.you_web_search(:q)",
+            [{"name": "q", "value": decision.scrubbed_query}],
+        )
+        payload = _coerce_free_search(fallback)
 
     stamp = _now()
     results: list[WebResult] = []

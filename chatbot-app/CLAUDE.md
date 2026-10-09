@@ -127,7 +127,7 @@ npx playwright test --headed --project=e2e  # Run E2E tests with browser visible
 ```
 
 **Test projects:** `unit`, `e2e`, `routes`
-**Test timeout:** 240 seconds (very generous for AI operations)
+**Test timeout:** 20 seconds (Playwright config); AI e2e tests may need a higher override locally.
 
 ### Deployment (Databricks Asset Bundle)
 
@@ -136,40 +136,11 @@ npx playwright test --headed --project=e2e  # Run E2E tests with browser visible
 2. **Prompt for missing values** - If TODOs exist (especially for `serving_endpoint_name`), ask the user to provide the required values before proceeding
 3. **Update the file** - Set the default value in `databricks.yml` and remove the TODO comment
 
-#### Enabling Database Integration (Optional)
+#### Lakebase
 
-By default, the app deploys in **ephemeral mode** - chats are stored in memory and lost on restart.
+Lakebase is already declared in `databricks.yml` (database instance + app `database` resource). Do not comment it out for a workshop deploy. Local ephemeral mode is `TEST_MODE=ephemeral` / omitting PG* env vars, not a bundle change.
 
-To enable **persistent chat history** with a managed Lakebase database, you need to uncomment **TWO sections** in `databricks.yml`:
-
-1. Open `databricks.yml`
-
-2. **Uncomment DATABASE RESOURCE (1)** - Find the database instance definition (around lines 17-21):
-   ```yaml
-   resources:
-     database_instances:
-     # DATABASE RESOURCE (1): Uncomment the database resource below...
-     #   chatbot_lakebase:
-     #     name: ${var.database_instance_name}-${var.resource_name_suffix}
-     #     capacity: CU_1
-   ```
-   Remove the `#` symbols to uncomment it.
-
-3. **Uncomment DATABASE RESOURCE (2)** - Find the database resource binding (around lines 39-44):
-   ```yaml
-   # DATABASE RESOURCE (2): uncomment the database resource below...
-   # - name: database
-   #   description: "Lakebase database instance for the chat app"
-   #   database:
-   #     database_name: databricks_postgres
-   #     instance_name: ${resources.database_instances.chatbot_lakebase.name}
-   #     permission: CAN_CONNECT_AND_CREATE
-   ```
-   Remove the `#` symbols to uncomment it.
-
-4. Deploy as normal
-
-**Important:** Both sections must be uncommented for database integration to work. The first creates the database instance, the second connects it to your app.
+After `databricks bundle deploy` of the app, re-run `python resources/grant_app_mas_permissions.py` (or `databricks bundle run grant_app_mas_permissions` from the repo root) so the app service principal keeps CAN_QUERY on MAS sub-agent endpoints. Those names are allocated by Agent Bricks at create time and cannot be listed in the app bundle ahead of time.
 
 ```bash
 databricks bundle validate             # Validate bundle config
@@ -535,7 +506,7 @@ resources:
 ## Repository Etiquette
 
 - **Main branch**: `main`
-- **Current branch**: `remove-nextjs` (feature branch)
+- **Current branch**: `main`
 - **Commit messages**: Concise, imperative mood
 - **Testing**: Run `npm test` before committing
 - **Linting**: Run `npm run lint` to auto-fix issues

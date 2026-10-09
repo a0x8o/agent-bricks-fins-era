@@ -369,6 +369,27 @@ def test_402_from_the_uc_function_names_the_cause(sink):
     assert "balance" in message or "credit" in message
 
 
+class _SeqSql:
+    def __init__(self, *payloads):
+        self.payloads = list(payloads)
+        self.statements: list[str] = []
+
+    def scalar(self, statement: str, params: list[dict]) -> str:
+        self.statements.append(statement)
+        payload = self.payloads.pop(0)
+        return payload if isinstance(payload, str) else json.dumps(payload)
+
+
+def test_402_falls_back_to_free_tier_search(sink):
+    sql = _SeqSql(
+        {"era_error": "You.com search returned HTTP 402", "body": "payment_required"},
+        {"results": {"web": [{"url": "https://reuters.com/a", "title": "A"}]}},
+    )
+    resp = you_fast.search("q", catalog=CATALOG, schema=SCHEMA, executor=sql, sink=sink)
+    assert resp.urls == {"https://reuters.com/a"}
+    assert "you_web_search" in sql.statements[1]
+
+
 def test_401_is_still_reported_as_a_credential_problem(sink):
     """The distinction only helps if 401 does NOT get the billing wording."""
     transport = FakeTransport(post=(401, {"error": "unauthorized"}))

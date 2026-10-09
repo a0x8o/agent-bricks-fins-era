@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Link } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import { PlusIcon } from 'lucide-react';
+import { YouLogo } from '@/components/you/you-logo';
 import type { ClientSession } from '@chat-template/auth';
 
 export function AppSidebar({
@@ -38,8 +38,9 @@ export function AppSidebar({
               }}
               className="flex flex-row items-center gap-3"
             >
-              <span className="cursor-pointer rounded-md px-2 font-semibold text-lg hover:bg-muted">
-                Chatbot
+              <span className="flex cursor-pointer items-center gap-2 rounded-md px-2 hover:bg-muted">
+                <YouLogo className="size-5 text-foreground" />
+                <span className="font-semibold text-lg">Research</span>
               </span>
             </Link>
             <Tooltip>

@@ -73,6 +73,7 @@ def test_planner_selects_the_tools_it_names():
     assert state["plan"]["internal_data"]
     assert state["plan"]["web_search"]
     assert not state["plan"]["web_research"]
+    assert not state["plan"]["web_contents"]
 
 
 def test_a_plan_selecting_nothing_falls_back_to_internal_sources():
@@ -86,6 +87,7 @@ def test_a_plan_selecting_nothing_falls_back_to_internal_sources():
     assert state["plan"]["internal_documents"]
     assert state["plan"]["internal_data"]
     assert not state["plan"]["web_search"]
+    assert not state["plan"]["web_contents"]
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +172,48 @@ def test_research_is_not_resubmitted_while_one_is_in_flight():
 
     assert calls == []
     assert state["research_task_id"] == "task-already-running"
+
+
+def test_page_extraction_fills_markdown_from_search_urls():
+    """web_contents is a follow-on: it reads URLs search already returned."""
+    def contents(urls, sensitivity):
+        assert urls == ["https://reuters.com/a"]
+        return [{
+            "url": "https://reuters.com/a",
+            "title": "Nvidia beats",
+            "markdown": "Full article body",
+            "retrieved_at": "2026-08-04T09:15:00Z",
+        }]
+
+    tools = sup.ToolBundle(search=lambda q, s: web_hit(), contents=contents)
+    state = sup.new_state(QUESTION)
+    state["plan"] = {"web_search": True, "web_contents": True}
+    state.update(sup.act_node(state, tools=tools))
+
+    assert state["external"][0]["markdown"] == "Full article body"
+
+
+def test_page_extraction_without_urls_degrades_with_a_notice():
+    tools = sup.ToolBundle(contents=lambda urls, s: (_ for _ in ()).throw(AssertionError("must not call")))
+    state = sup.new_state(QUESTION)
+    state["plan"] = {"web_contents": True}
+    state.update(sup.act_node(state, tools=tools))
+
+    assert state["external"] == []
+    assert any("no search URLs" in n for n in state["notices"])
+
+
+def test_page_extraction_policy_refusal_does_not_abort_the_turn():
+    def contents(urls, sensitivity):
+        raise PolicyError("contents refused")
+
+    tools = sup.ToolBundle(search=lambda q, s: web_hit(), contents=contents)
+    state = sup.new_state(QUESTION)
+    state["plan"] = {"web_search": True, "web_contents": True}
+    state.update(sup.act_node(state, tools=tools))
+
+    assert state["external"]
+    assert any("blocked by policy" in n for n in state["notices"])
 
 
 def test_a_thread_with_an_injected_result_resumes_at_synthesis():

@@ -1,9 +1,13 @@
 # Agent Bricks Workshop - Feedback & Issues
 
-> Source: Tim Lortz's feedback from Slack (March 12-17, 2026)
-> Channel: agent-bricks-fins-mag7
-
-Use this file as instructions to fix the issues listed below. Each issue includes the problem description, affected file(s), root cause, and the expected fix. Apply fixes in the order listed — some later issues depend on earlier ones being resolved.
+> **Historical.** Tim Lortz, Slack, March 12–17 2026 (`agent-bricks-fins-mag7`).
+>
+> Status as of August 2026: issues **2–3 and 5–10 are fixed in code**. Issue **1**
+> leftover was a stale root `tables_setup.ipynb` and a Readme path into
+> `resources/` — both corrected; the live notebook is
+> `setup_instructor/00_tables_setup.ipynb`. Issue **4** leftover was unquoted
+> identifiers in 05b smoke tests — those statements now use backticks. Do not
+> re-implement the original punch list.
 
 ---
 

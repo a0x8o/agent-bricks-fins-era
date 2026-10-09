@@ -19,7 +19,7 @@ Before running any setup, update `../config.py` with your workspace settings:
 catalog = "your_catalog_name"
 schema = "your_schema_name" 
 volume_name = "raw_documents"
-sa_name = "Supervisor_Agent_Mag7"
+sa_name = "Supervisor_Agent_ERA"
 ```
 
 This configuration determines where:

@@ -73,6 +73,7 @@ def build_resources(*, llm_endpoint, ka_endpoint, genie_space_id, warehouse_id, 
         DatabricksServingEndpoint,
         DatabricksSQLWarehouse,
         DatabricksTable,
+        DatabricksUCConnection,
     )
 
     resources = [DatabricksServingEndpoint(endpoint_name=llm_endpoint)]
@@ -82,10 +83,13 @@ def build_resources(*, llm_endpoint, ka_endpoint, genie_space_id, warehouse_id, 
         resources.append(DatabricksGenieSpace(genie_space_id=genie_space_id))
     if warehouse_id:
         resources.append(DatabricksSQLWarehouse(warehouse_id=warehouse_id))
-    for fn in ("era_you_search", "era_you_contents"):
+    for fn in ("era_you_search", "era_you_contents", "you_web_search", "you_content_extract"):
         resources.append(DatabricksFunction(function_name=f"{catalog}.{schema}.{fn}"))
-    # The audit table is written by the agent, so it needs to be reachable too.
+    for conn in ("you_search_http", "you_research_http"):
+        resources.append(DatabricksUCConnection(connection_name=conn))
+    # Audit is written by the agent; ticker_data is what Genie reads as VIEWER.
     resources.append(DatabricksTable(table_name=f"{catalog}.{schema}.egress_audit"))
+    resources.append(DatabricksTable(table_name=f"{catalog}.{schema}.ticker_data"))
     return resources
 
 

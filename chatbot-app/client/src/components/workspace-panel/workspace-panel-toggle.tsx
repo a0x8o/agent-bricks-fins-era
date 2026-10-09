@@ -31,14 +31,14 @@ export function WorkspacePanelToggle() {
             className="h-8 w-8"
             onClick={toggle}
             aria-pressed={isOpen}
-            aria-label="Toggle workspace panel"
+            aria-label="Toggle analyst view"
             data-testid="workspace-panel-toggle"
           >
             <PanelRight className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>{isOpen ? 'Hide' : 'Show'} workspace panel</p>
+          <p>{isOpen ? 'Hide' : 'Show'} analyst view</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 import { CodeBlock } from './code-block';
+import { YouLogo } from '@/components/you/you-logo';
+import { isYouComTool } from '@/lib/you-com';
 
 type ToolProps = ComponentProps<typeof Collapsible>;
 
@@ -72,7 +74,11 @@ export const ToolHeader = ({
     {...props}
   >
     <div className="flex min-w-0 flex-1 items-center gap-2">
-      <WrenchIcon className="size-4 shrink-0 text-muted-foreground" />
+      {isYouComTool(String(type)) ? (
+        <YouLogo className="size-4 text-foreground" title="You.com" />
+      ) : (
+        <WrenchIcon className="size-4 shrink-0 text-muted-foreground" />
+      )}
       <span className="truncate font-medium text-sm">{type}</span>
     </div>
     <div className="flex shrink-0 items-center gap-2">

@@ -11,3 +11,29 @@ __pycache__/
 # project code - the donor repo committed one of these by accident.
 mlflow.db
 mlruns/
+
+# Corpus documents built by the scripts in resources/. Roughly 30 MB of PDF that
+# is fully reproducible from conf/companies.yaml:
+#   resources/fetch_filings.py          -> data/edgar_10k, data/edgar_10q
+#   resources/generate_synthetic_docs.py -> data/synthetic
+# The Mag7 PDFs under data/10k, data/10Q and friends stay committed - they are the
+# original corpus and there is no script that reproduces them.
+#
+# data/corpus_manifest.json is deliberately NOT ignored: it records exactly which
+# filing (accession number, source URL, checksum) each document came from, and
+# which documents are generated. That record is worth having in git even though
+# the documents themselves are not.
+data/edgar_10k/
+data/edgar_10q/
+data/synthetic/
+
+# Mirrored Databricks AI Dev Kit installs for other assistants. The lockfile
+# (skills-lock.json) is the source of truth; regenerate rather than committing
+# ~16 MB of duplicated trees. Keep .claude/ for this project's own skills.
+.gemini/
+.windsurf/
+.kiro/
+.opencode/
+.agents/
+.ai-dev-kit/
+.github/skills/
