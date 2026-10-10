@@ -53,7 +53,10 @@ function parseTickers(raw: unknown): string[] {
     .slice(0, 12);
 }
 
-/** Build a safe `company_name IN (:t0, :t1, ...)` clause + params. */
+/**
+ * Build a safe `symbol IN (:t0, :t1, ...)` clause + params. Tickers live in
+ * `symbol`; `company_name` is the display name (and 05b's graph node id).
+ */
 function tickerFilter(tickers: string[]) {
   if (tickers.length === 0) return { clause: '', params: [] as const };
   const params = tickers.map((value, i) => ({
@@ -61,7 +64,7 @@ function tickerFilter(tickers: string[]) {
     value,
     type: 'STRING' as const,
   }));
-  const clause = `WHERE company_name IN (${params
+  const clause = `WHERE symbol IN (${params
     .map((p) => `:${p.name}`)
     .join(', ')})`;
   return { clause, params };
@@ -86,10 +89,10 @@ seriesRouter.get('/meta', requireAuth, async (req: Request, res: Response) => {
   }
   try {
     const result = await executeSql(
-      `SELECT DISTINCT company_name FROM ${table} ORDER BY company_name`,
+      `SELECT DISTINCT symbol FROM ${table} ORDER BY symbol`,
     );
     const tickers = result.records
-      .map((r) => r.company_name)
+      .map((r) => r.symbol)
       .filter((t): t is string => Boolean(t));
     res.json({
       tickers,
@@ -122,10 +125,10 @@ seriesRouter.get(
     try {
       // Latest row per company (most recent Date).
       const result = await executeSql(
-        `SELECT company_name, Date, price_close, market_cap, pe_trailing, ` +
-          `pe_forward, beta, volume FROM (` +
+        `SELECT symbol, company_name, Date, price_close, market_cap, ` +
+          `pe_trailing, pe_forward, beta, volume FROM (` +
           `  SELECT *, ROW_NUMBER() OVER ` +
-          `    (PARTITION BY company_name ORDER BY Date DESC) AS rn ` +
+          `    (PARTITION BY symbol ORDER BY Date DESC) AS rn ` +
           `  FROM ${table} ${clause}` +
           `) WHERE rn = 1 ORDER BY market_cap DESC`,
         [...params],
@@ -166,9 +169,9 @@ seriesRouter.get('/', requireAuth, async (req: Request, res: Response) => {
 
   try {
     const result = await executeSql(
-      `SELECT CAST(Date AS STRING) AS date, company_name AS ticker, ` +
+      `SELECT CAST(Date AS STRING) AS date, symbol AS ticker, ` +
         `CAST(${column} AS DOUBLE) AS value FROM ${table} ${clause} ` +
-        `ORDER BY company_name, Date`,
+        `ORDER BY symbol, Date`,
       [...params],
     );
     const points = result.records

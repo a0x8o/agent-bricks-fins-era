@@ -34,6 +34,7 @@ interface SeriesResponse {
 }
 
 interface SummaryRow {
+  symbol: string | null;
   company_name: string | null;
   price_close: string | null;
   market_cap: string | null;
@@ -72,7 +73,7 @@ function KpiTiles({ tickers }: { tickers: string[] }) {
         const pe = Number(row.pe_trailing);
         return (
           <div
-            key={row.company_name ?? Math.random()}
+            key={row.symbol ?? row.company_name ?? Math.random()}
             className="rounded-lg border bg-card p-2"
           >
             <p className="truncate font-medium text-xs">{row.company_name}</p>

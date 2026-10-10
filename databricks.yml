@@ -12,11 +12,11 @@ targets:
   dev:
     mode: development
     default: true
-    workspace:
-      host: https://dbc-3aa503a9-4fa8.cloud.databricks.com
+    # No workspace host: the CLI uses your profile (DATABRICKS_CONFIG_PROFILE),
+    # so the bundle deploys to whichever workspace you're authenticated against.
 
   ## Optionally, there could be 'staging' or 'prod' targets here.
   #
   # prod:
   #   workspace:
-  #     host: https://dbc-3aa503a9-4fa8.cloud.databricks.com
+  #     host: https://<your-workspace>.cloud.databricks.com

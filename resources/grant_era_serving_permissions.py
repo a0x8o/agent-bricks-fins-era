@@ -9,7 +9,9 @@ ACLs are easy to omit. The chatbot then gets a fully [OPS] answer even though
 the bricks themselves are healthy.
 
 Serving principals are discovered from Unity Catalog EXECUTE grants on
-``era_you_search`` (one SP per deployed model version).
+``era_you_search`` (one SP per deployed model version). The KA endpoint, Genie
+space and warehouse are read from the deployed endpoint's environment (what ERA
+actually calls), falling back to ``config.py``; flags override both.
 
 Usage::
 
@@ -101,6 +103,19 @@ def _patch_acl(w, path: str, service_principal: str, permission: str) -> None:
     )
 
 
+def era_endpoint_env(w, name: str) -> dict:
+    """Environment of the deployed ERA endpoint - the resources it really calls."""
+    try:
+        ep = w.serving_endpoints.get(name)
+    except Exception as exc:  # noqa: BLE001
+        print(f"could not read endpoint {name}: {exc}")
+        return {}
+    for entity in (ep.config.served_entities if ep.config else None) or []:
+        if entity.environment_vars:
+            return dict(entity.environment_vars)
+    return {}
+
+
 def _endpoint_id(w, name: str) -> str:
     ep = w.serving_endpoints.get(name)
     return ep.id
@@ -109,9 +124,10 @@ def _endpoint_id(w, name: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     cfg = load_config()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--warehouse-id", default="2f2c504485282e9a")
-    parser.add_argument("--ka-endpoint", default="ka-02039b11-endpoint")
-    parser.add_argument("--genie-space-id", default="01f19057fb8316e7931b447de6627824")
+    parser.add_argument("--endpoint", default="era-supervisor")
+    parser.add_argument("--warehouse-id", default="")
+    parser.add_argument("--ka-endpoint", default="")
+    parser.add_argument("--genie-space-id", default="")
     parser.add_argument("--secret-scope", default="era_you")
     parser.add_argument(
         "--app-sp",
@@ -124,7 +140,23 @@ def main(argv: list[str] | None = None) -> int:
 
     w = WorkspaceClient()
     catalog, schema = cfg["catalog"], cfg["schema"]
-    warehouse_id = args.warehouse_id
+    env = era_endpoint_env(w, args.endpoint)
+    warehouse_id = (
+        args.warehouse_id
+        or env.get("ERA_WAREHOUSE_ID")
+        or (cfg.get("sql_warehouse_id") or "").strip()
+    )
+    ka_endpoint = args.ka_endpoint or env.get("ERA_KA_ENDPOINT", "")
+    genie_space_id = (
+        args.genie_space_id
+        or env.get("ERA_GENIE_SPACE_ID")
+        or (cfg.get("genie_space_id") or "").strip()
+    )
+    if not warehouse_id:
+        raise SystemExit(
+            "no warehouse: pass --warehouse-id or set sql_warehouse_id in config.py"
+        )
+    print(f"warehouse={warehouse_id} ka={ka_endpoint or '-'} genie={genie_space_id or '-'}")
 
     serving = discover_serving_sps(w, warehouse_id, catalog, schema)
     app_sp = args.app_sp.strip()
@@ -162,7 +194,11 @@ def main(argv: list[str] | None = None) -> int:
             except Exception as exc:  # noqa: BLE001
                 print(f"skip {stmt}: {exc}")
 
-    ka_id = _endpoint_id(w, args.ka_endpoint)
+    ka_id = _endpoint_id(w, ka_endpoint) if ka_endpoint else None
+    if not ka_id:
+        print("skip KA grants: no KA endpoint (pass --ka-endpoint)")
+    if not genie_space_id:
+        print("skip Genie grants: no Genie space (pass --genie-space-id)")
     for p in principals:
         try:
             from databricks.sdk.service.workspace import AclPermission
@@ -185,50 +221,28 @@ def main(argv: list[str] | None = None) -> int:
             print(f"ok  warehouse CAN_USE -> {p}")
         except Exception as exc:  # noqa: BLE001
             print(f"skip warehouse {p}: {exc}")
-        try:
-            _patch_acl(
-                w,
-                f"/api/2.0/permissions/serving-endpoints/{ka_id}",
-                p,
-                "CAN_QUERY",
-            )
-            print(f"ok  KA CAN_QUERY -> {p}")
-        except Exception as exc:  # noqa: BLE001
-            print(f"skip KA {p}: {exc}")
-        try:
-            _patch_acl(
-                w,
-                f"/api/2.0/permissions/genie/{args.genie_space_id}",
-                p,
-                "CAN_RUN",
-            )
-            print(f"ok  Genie CAN_RUN -> {p}")
-        except Exception as exc:  # noqa: BLE001
-            print(f"skip Genie {p}: {exc}")
-
-    room = w.api_client.do(
-        "GET", f"/api/2.0/data-rooms/{args.genie_space_id}"
-    )
-    room["warehouse_id"] = warehouse_id
-    room["run_as_type"] = "OWNER"
-    w.api_client.do(
-        "PATCH",
-        f"/api/2.0/data-rooms/{args.genie_space_id}",
-        body={
-            "id": args.genie_space_id,
-            "space_id": args.genie_space_id,
-            "display_name": room.get("display_name"),
-            "description": room.get("description"),
-            "warehouse_id": warehouse_id,
-            "table_identifiers": room.get("table_identifiers") or [
-                f"{catalog}.{schema}.ticker_data"
-            ],
-            "run_as_type": "OWNER",
-        },
-    )
-    print(
-        f"ok  Genie {args.genie_space_id} warehouse={warehouse_id} run_as=OWNER"
-    )
+        if ka_id:
+            try:
+                _patch_acl(
+                    w,
+                    f"/api/2.0/permissions/serving-endpoints/{ka_id}",
+                    p,
+                    "CAN_QUERY",
+                )
+                print(f"ok  KA CAN_QUERY -> {p}")
+            except Exception as exc:  # noqa: BLE001
+                print(f"skip KA {p}: {exc}")
+        if genie_space_id:
+            try:
+                _patch_acl(
+                    w,
+                    f"/api/2.0/permissions/genie/{genie_space_id}",
+                    p,
+                    "CAN_RUN",
+                )
+                print(f"ok  Genie CAN_RUN -> {p}")
+            except Exception as exc:  # noqa: BLE001
+                print(f"skip Genie {p}: {exc}")
 
     # era_you_search itself comes from era/connections/render_uc_functions.py, the
     # one place its domain policy is defined. Do not redefine it here.

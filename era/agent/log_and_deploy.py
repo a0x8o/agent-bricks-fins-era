@@ -183,7 +183,7 @@ def deploy(model_name: str, version: int, args) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--llm-endpoint", default="alexxx-era-sonnet-4-5")
+    p.add_argument("--llm-endpoint", default="databricks-claude-sonnet-4-5")
     p.add_argument("--ka-endpoint", default="")
     p.add_argument("--genie-space-id", default="")
     p.add_argument("--warehouse-id", default="")
