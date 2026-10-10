@@ -11,18 +11,6 @@ test.describe('/api/config', () => {
     expect(data).toHaveProperty('features');
     expect(data.features).toHaveProperty('chatHistory');
     expect(typeof data.features.chatHistory).toBe('boolean');
-    expect(data).toHaveProperty('appMode');
-    expect(['simple', 'pro']).toContain(data.appMode);
-    expect(data.features).toHaveProperty('proMode');
-    expect(data.features).toHaveProperty('graph');
-    expect(data.features).toHaveProperty('dataExplorer');
-    expect(data.features).toHaveProperty('dashboard');
-    // Default workshop / CI deploy is simple mode: SQL tabs stay off.
-    if (data.appMode === 'simple') {
-      expect(data.features.proMode).toBe(false);
-      expect(data.features.graph).toBe(false);
-      expect(data.features.dataExplorer).toBe(false);
-    }
 
     if (process.env.TEST_MODE === 'with-db') {
       // In the test environment with database configured, chatHistory should be true

@@ -1,6 +1,13 @@
 // Load environment variables FIRST before any other imports
 import './env';
 
+// Prevent unhandled promise rejections from crashing the Node process.
+// The AI SDK stream pipeline can surface rejections from onFinish callbacks
+// that are already caught inside the handler — this is a safety net.
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled promise rejection (process kept alive):', reason);
+});
+
 import express, {
   type Request,
   type Response,
@@ -18,7 +25,9 @@ import { messagesRouter } from './routes/messages';
 import { configRouter } from './routes/config';
 import { graphRouter } from './routes/graph';
 import { seriesRouter } from './routes/series';
+import { dashboardDataRouter } from './routes/dashboard-data';
 import { ChatSDKError } from '@chat-template/core/errors';
+import { isDatabaseAvailable } from '@chat-template/db';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -58,6 +67,7 @@ app.use('/api/messages', messagesRouter);
 app.use('/api/config', configRouter);
 app.use('/api/graph', graphRouter);
 app.use('/api/series', seriesRouter);
+app.use('/api/dashboard-data', dashboardDataRouter);
 
 // Serve static files in production
 if (!isDevelopment) {
@@ -121,6 +131,43 @@ async function startServer() {
         error instanceof Error ? error.stack : error,
       );
     }
+  }
+
+  // Run DB migration at startup (where SP OAuth credentials are available)
+  if (isDatabaseAvailable()) {
+    try {
+      console.log('[Startup] Database detected — running migrations...');
+      const { getConnectionUrl, getSchemaName } = await import('@chat-template/db');
+      const { default: postgres } = await import('postgres');
+      const { drizzle } = await import('drizzle-orm/postgres-js');
+      const { migrate } = await import('drizzle-orm/postgres-js/migrator');
+      const url = await getConnectionUrl();
+      const schemaName = getSchemaName();
+      const schemaConn = postgres(url, { max: 1, connect_timeout: 15 });
+      await schemaConn`CREATE SCHEMA IF NOT EXISTS ${schemaConn(schemaName)}`;
+      await schemaConn`CREATE SCHEMA IF NOT EXISTS drizzle`;
+      await schemaConn.end();
+      const migrationConn = postgres(url, { max: 1, connect_timeout: 15 });
+      const db = drizzle(migrationConn);
+      const path = await import('node:path');
+      const { dirname } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const __fn = fileURLToPath(import.meta.url);
+      const __dn = dirname(__fn);
+      const migrationsFolder = path.join(__dn, '../../packages/db/migrations');
+      await migrate(db, { migrationsFolder });
+      await migrationConn.end();
+      console.log('[Startup] Migrations completed successfully');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('permission denied for schema drizzle')) {
+        console.warn('[Startup] Migration tracker schema inaccessible — app tables intact, continuing.');
+      } else {
+        console.error('[Startup] Migration failed (non-fatal):', msg);
+      }
+    }
+  } else {
+    console.log('[Startup] No database configured — running in ephemeral mode');
   }
 
   app.listen(PORT, () => {

@@ -86,6 +86,7 @@ const TERMINAL: StatementState[] = [
 export async function executeSql(
   statement: string,
   params?: SqlParam[],
+  overrideToken?: string,
 ): Promise<SqlResult> {
   const warehouseId = process.env.DATABRICKS_WAREHOUSE_ID;
   if (!warehouseId) {
@@ -94,10 +95,11 @@ export async function executeSql(
     );
   }
 
-  const [token, rawHost] = await Promise.all([
+  const [spToken, rawHost] = await Promise.all([
     getToken(),
     getWorkspaceHostname(),
   ]);
+  const token = overrideToken || spToken;
   const host = normalizeHost(rawHost);
   const baseUrl = `${host}/api/${API_VERSION}/sql/statements`;
 

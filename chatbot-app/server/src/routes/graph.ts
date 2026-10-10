@@ -30,7 +30,7 @@ const querySchema = z.object({
 });
 
 // Identifier guard for the admin-provided catalog/schema (not user input).
-const IDENT = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+const IDENT = /^[A-Za-z0-9_]+$/;
 
 interface GraphNode {
   id: string;
@@ -48,7 +48,7 @@ interface GraphEdge {
 }
 
 // Hub node types that group/relate companies (added by the enrichment step in
-// the GraphRAG notebook): sector, index, beta, and valuation hubs.
+// the GraphRAG notebook): a MAG7 index, sectors, beta tiers, valuation tiers.
 const HUB_TYPES = ['Index', 'Sector', 'BetaTier', 'ValuationTier'];
 
 const NODE_COLS =

@@ -13,7 +13,7 @@ export const seriesRouter: RouterType = Router();
 seriesRouter.use(authMiddleware);
 
 /**
- * Read-only views over the ticker_data table for the Data Explorer tab.
+ * Read-only views over the MAG7 ticker_data table for the Data Explorer tab.
  *
  *   GET /api/series/meta                 → available tickers + metric options
  *   GET /api/series?metric=&tickers=     → tidy time series for charting
@@ -36,7 +36,7 @@ const METRICS = {
 type MetricKey = keyof typeof METRICS;
 const METRIC_KEYS = Object.keys(METRICS) as MetricKey[];
 
-const IDENT = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+const IDENT = /^[A-Za-z0-9_]+$/;
 
 function tableName(): string | null {
   const { catalog, schema } = getGraphTableConfig();
@@ -78,7 +78,7 @@ function ensureEnabled(res: Response): boolean {
 }
 
 // GET /api/series/meta
-seriesRouter.get('/meta', requireAuth, async (_req: Request, res: Response) => {
+seriesRouter.get('/meta', requireAuth, async (req: Request, res: Response) => {
   if (!ensureEnabled(res)) return;
   const table = tableName();
   if (!table) {
