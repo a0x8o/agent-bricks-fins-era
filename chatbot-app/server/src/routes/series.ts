@@ -44,10 +44,13 @@ function tableName(): string | null {
   return `\`${catalog}\`.\`${schema}\`.ticker_data`;
 }
 
+// Tickers are company names, several of which contain commas
+// ("Amazon.com, Inc.", "Meta Platforms, Inc.", "Tesla, Inc."), so the client
+// joins them with '|'. Splitting on ',' silently dropped those companies.
 function parseTickers(raw: unknown): string[] {
   if (typeof raw !== 'string' || !raw.trim()) return [];
   return raw
-    .split(',')
+    .split('|')
     .map((t) => t.trim())
     .filter(Boolean)
     .slice(0, 12);
@@ -166,7 +169,8 @@ seriesRouter.get('/', requireAuth, async (req: Request, res: Response) => {
 
   try {
     const result = await executeSql(
-      `SELECT CAST(Date AS STRING) AS date, company_name AS ticker, ` +
+      // ISO yyyy-MM-dd parses reliably as Vega temporal in every browser.
+      `SELECT DATE_FORMAT(Date, 'yyyy-MM-dd') AS date, company_name AS ticker, ` +
         `CAST(${column} AS DOUBLE) AS value FROM ${table} ${clause} ` +
         `ORDER BY company_name, Date`,
       [...params],

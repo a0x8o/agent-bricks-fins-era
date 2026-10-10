@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
-import { VegaLite } from 'react-vega';
+import { Vega } from 'react-vega';
 import { BarChart3, Loader2 } from 'lucide-react';
 import { fetcher, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -55,10 +55,13 @@ function formatNumber(value: number, digits = 2): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
+// Company names contain commas ("Tesla, Inc."), so tickers are joined with '|'.
+const TICKER_SEP = '|';
+
 function KpiTiles({ tickers }: { tickers: string[] }) {
   const key =
     tickers.length > 0
-      ? `/api/series/summary?tickers=${encodeURIComponent(tickers.join(','))}`
+      ? `/api/series/summary?tickers=${encodeURIComponent(tickers.join(TICKER_SEP))}`
       : '/api/series/summary';
   const { data } = useSWR<{ rows: SummaryRow[] }>(key, fetcher);
   const rows = data?.rows ?? [];
@@ -118,24 +121,42 @@ export function DataExplorerView({ focusTicker }: DataExplorerViewProps) {
 
   const seriesKey =
     selected.length > 0
-      ? `/api/series?metric=${metric}&tickers=${encodeURIComponent(selected.join(','))}`
+      ? `/api/series?metric=${metric}&tickers=${encodeURIComponent(selected.join(TICKER_SEP))}`
       : null;
   const { data: series, isLoading } = useSWR<SeriesResponse>(seriesKey, fetcher);
 
   const metricLabel =
     meta?.metrics.find((m) => m.key === metric)?.label ?? 'Value';
 
+  // react-vega does not support vega-embed's `width: 'container'` (renders a
+  // zero-width, invisible chart). Measure the container and pass pixels,
+  // same approach as VegaChart.tsx.
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [chartWidth, setChartWidth] = useState(0);
+  useEffect(() => {
+    const el = chartRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.clientWidth;
+      if (w > 0) setChartWidth(w);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+
   const spec = useMemo(
     () =>
       ({
         $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
-        width: 'container',
+        width: Math.max(chartWidth - 16, 200),
         height: 240,
         autosize: { type: 'fit', contains: 'padding' },
         data: { values: series?.points ?? [] },
         mark: { type: 'line', interpolate: 'monotone', strokeWidth: 2 },
         encoding: {
-          x: { field: 'date', type: 'temporal', title: null },
+          x: { field: 'date', type: 'temporal', title: null, timeUnit: 'yearmonthdate' },
           y: {
             field: 'value',
             type: 'quantitative',
@@ -150,7 +171,7 @@ export function DataExplorerView({ focusTicker }: DataExplorerViewProps) {
           ],
         },
       }) as const,
-    [series, metricLabel],
+    [series, metricLabel, chartWidth],
   );
 
   if (metaError) {
@@ -232,8 +253,14 @@ export function DataExplorerView({ focusTicker }: DataExplorerViewProps) {
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : (
-          <div className="w-full">
-            <VegaLite spec={spec as never} actions={false} />
+          <div ref={chartRef} className="w-full">
+            {chartWidth > 0 && (series?.points?.length ?? 0) > 0 ? (
+              <Vega spec={spec as never} actions={false} />
+            ) : series && series.points.length === 0 ? (
+              <div className="flex h-40 items-center justify-center text-muted-foreground text-xs">
+                No data for the selected tickers.
+              </div>
+            ) : null}
           </div>
         )}
       </div>
