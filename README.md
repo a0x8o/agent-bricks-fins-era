@@ -206,10 +206,10 @@ data/
    - Creates catalog and schema (if they don't exist)
    - Creates Unity Catalog volume for documents
    - Uploads everything under `data/` to the volume, mirroring the folder structure
-   - Builds `ticker_data` from the CSV already in `data/ticker_data/` (Mag7 plus every
-     listed company in `conf/companies.yaml` once you have refreshed that CSV)
-   - To refresh prices, run `resources/download_ticker_data.py` on Databricks **before**
-     `00_tables_setup` — the setup notebook does not call yfinance itself
+   - Builds `ticker_data` from the committed Mag7 CSV in `data/ticker_data/`, then
+     replaces it with live yfinance prices for the Mag7 plus every listed company in
+     `conf/companies.yaml` (runs `resources/download_ticker_data.py`; needs outbound
+     internet — if the download fails, the Mag7 table from the CSV is kept)
    - Includes price, volume, and financial metrics
 
 ### Step 0.1 (recommended): Build the extended document corpus
@@ -996,7 +996,7 @@ agent-bricks-workshop/
 │   └── databricks.yml                     # Asset bundle config (parameterized)
 ├── resources/
 │   ├── data_setup_functions.py            # Helper functions for data setup
-│   ├── download_ticker_data.py            # Optional ticker CSV refresh (yfinance)
+│   ├── download_ticker_data.py            # Live ticker_data refresh (yfinance), run by 00
 │   ├── brick_setup_functions.py           # Agent Bricks helper functions
 │   ├── fetch_filings.py                   # EDGAR corpus builder
 │   ├── generate_synthetic_docs.py         # Watermarked synthetic PDFs

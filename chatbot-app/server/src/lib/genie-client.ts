@@ -38,7 +38,8 @@ export interface GenieMessage {
   status: GenieMessageStatus;
   attachments?: GenieAttachment[];
   created_at?: string;
-  error?: { message: string };
+  // MessageError in the API is { error, type }; `message` kept as a fallback.
+  error?: { error?: string; type?: string; message?: string };
 }
 
 export interface GenieQueryResult {
@@ -203,11 +204,36 @@ export async function getQueryResult(
   token?: string,
 ): Promise<GenieQueryResult> {
   console.log(`[Genie] Fetching query result for message ${messageId}`);
-  return genieRequest<GenieQueryResult>(
+  const raw = await genieRequest<GenieQueryResultResponse>(
     `/${spaceId}/conversations/${conversationId}/messages/${messageId}/query-result`,
     undefined,
     token,
   );
+  // The API wraps the result in a Statement Execution response:
+  // { statement_response: { manifest: { schema: { columns } }, result: { data_array } } }.
+  // Reading columns/data_array at the top level found nothing, so no table or
+  // chart ever rendered. The flat shape is still accepted.
+  const sr = raw.statement_response;
+  if (!sr) return raw as GenieQueryResult;
+  return {
+    statement_id: sr.statement_id,
+    columns: sr.manifest?.schema?.columns,
+    data_array: sr.result?.data_array,
+    row_count: sr.manifest?.total_row_count,
+    truncated: sr.manifest?.truncated,
+  };
+}
+
+interface GenieQueryResultResponse extends GenieQueryResult {
+  statement_response?: {
+    statement_id?: string;
+    manifest?: {
+      schema?: { columns?: Array<{ name: string; type_name: string }> };
+      total_row_count?: number;
+      truncated?: boolean;
+    };
+    result?: { data_array?: string[][] };
+  };
 }
 
 // ─── High-level helper ───────────────────────────────────────────────────────
@@ -284,7 +310,9 @@ export async function askGenie(
     sql,
     error:
       message.status === 'FAILED'
-        ? message.error?.message ?? 'Genie query failed'
+        ? message.error?.error ??
+          message.error?.message ??
+          'Genie query failed'
         : undefined,
   };
 }

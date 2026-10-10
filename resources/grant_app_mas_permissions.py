@@ -212,9 +212,20 @@ def main(argv: list[str] | None = None) -> int:
 
     w = WorkspaceClient()
     app = w.api_client.do("GET", f"/api/2.0/apps/{args.app_name}")
-    mas = find_mas(w, args.sa_name)
-    mas_ep = mas_endpoint_name(mas)
+    tile = find_mas(w, args.sa_name)
+    mas_ep = mas_endpoint_name(tile)
+    # The tiles listing carries no agents; only the full MAS record does (the same
+    # call notebook 06 makes). Reading agents off the tile collected nothing, and the
+    # PATCH below then stripped every sub-agent grant from the app.
+    mas = w.api_client.do(
+        "GET", f"/api/2.0/multi-agent-supervisors/{tile['tile_id']}"
+    )["multi_agent_supervisor"]
     sub_eps, functions, genies = collect_from_mas(mas)
+    if not (sub_eps or functions or genies):
+        raise SystemExit(
+            f"MAS {args.sa_name!r} lists no sub-agents; refusing to rewrite the "
+            "app's resources (it would remove their grants)."
+        )
     you_conn = (
         args.you_connection
         if args.you_connection and _connection_exists(w, args.you_connection)

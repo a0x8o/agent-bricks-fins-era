@@ -299,16 +299,15 @@ chatRouter.post('/', requireAuth, async (req: Request, res: Response) => {
                 .slice(0, 50) // cap at 50 rows for readability
                 .map((r) => '| ' + r.join(' | ') + ' |');
 
+              // Note truncation against the rows actually rendered (capped above),
+              // not the full data_array.
+              const total =
+                genieResponse.queryResult.row_count ?? rows.length;
+              const shown = dataRows.length;
               parts.push(
-                '\n\n**Results' +
-                  (genieResponse.queryResult.row_count
-                    ? ` (${genieResponse.queryResult.row_count} rows` +
-                      (rows.length < (genieResponse.queryResult.row_count ?? 0)
-                        ? ', showing first ' + rows.length
-                        : '') +
-                      ')'  
-                    : '') +
-                  ':**\n' +
+                `\n\n**Results (${total} rows` +
+                  (shown < total ? `, showing first ${shown}` : '') +
+                  '):**\n' +
                   [header, sep, ...dataRows].join('\n'),
               );
 

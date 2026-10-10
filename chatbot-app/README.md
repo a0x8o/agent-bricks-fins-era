@@ -21,7 +21,7 @@ but has some [known limitations](#known-limitations) for other use cases. Work i
 - **Databricks Agent and Foundation Model Integration**: Direct connection to Databricks Agent serving endpoints and Agent Bricks
 - **Databricks Authentication**: Uses Databricks authentication to identify end users of the chat app and securely manage their conversations.
 - **Persistent Chat History (Optional)**: Leverages Databricks Lakebase (Postgres) for storing conversations, with governance and tight lakehouse integration. Can also run in ephemeral mode without database.
-- **Pro mode (Optional)**: Set `APP_MODE=pro` to unlock a dockable workspace panel alongside the chat — an interactive knowledge graph (Sigma.js over the OntoBricks GraphRAG tables), a data explorer with charts + KPI tiles, and an embedded Genie space + AI/BI dashboard — plus an animated multi-agent "thinking" indicator during long queries. Defaults to `simple` (chat only).
+- **Pro mode (Optional)**: Set `APP_MODE=pro` to unlock a dockable workspace panel alongside the chat — an interactive knowledge graph (Sigma.js over the OntoBricks GraphRAG tables), a data explorer with charts + KPI tiles, and a native market / valuation / agent-ops / library dashboard — plus an animated multi-agent "thinking" indicator during long queries. Defaults to `simple` (chat only).
 
 ### Pro mode configuration
 

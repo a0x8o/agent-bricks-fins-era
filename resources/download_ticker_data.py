@@ -1,5 +1,5 @@
 # Databricks notebook source
-pip install yfinance
+# MAGIC %pip install yfinance pyyaml
 
 # COMMAND ----------
 

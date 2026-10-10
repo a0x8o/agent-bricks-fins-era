@@ -4,6 +4,13 @@
 
 # COMMAND ----------
 
-import runpy
+import sys
 
-runpy.run_path("../resources/grant_app_mas_permissions.py", run_name="__main__")
+sys.path.append("..")
+from resources.grant_app_mas_permissions import main
+
+# Explicit empty argv: running the script as __main__ would let argparse read the
+# notebook kernel's own sys.argv ("-f <kernel.json>") and exit on unknown args.
+rc = main([])
+if rc:
+    raise RuntimeError(f"grant_app_mas_permissions exited {rc}")
