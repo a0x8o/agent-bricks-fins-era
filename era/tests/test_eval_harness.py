@@ -190,6 +190,13 @@ def test_freshness_accepts_a_recent_timestamp():
     assert _score(freshness, fresh, {"requires_external": True}).value == 1.0
 
 
+def test_freshness_judges_a_saved_answer_as_of_when_it_was_answered():
+    """Offline fixtures must not expire on the calendar - the gate would go red unchanged."""
+    old = dict(GOOD, answer=GOOD["answer"].replace("2026-08-04T09:00:00Z", "2020-01-01T00:00:00Z"))
+    assert _score(freshness, dict(old, answered_at="2020-01-02T00:00:00Z"), {"requires_external": True}).value == 1.0
+    assert _score(freshness, dict(old, answered_at="2020-06-01T00:00:00Z"), {"requires_external": True}).value == 0.0
+
+
 # ---------------------------------------------------------------------------
 # governance
 # ---------------------------------------------------------------------------

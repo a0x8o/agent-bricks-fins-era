@@ -38,7 +38,7 @@ app_mode = "simple"  # "simple" | "pro"
 # SQL warehouse the app uses to read graph/ticker tables (Statement Execution API).
 # Required for the Graph + Data Explorer tabs in pro mode. Auto-discovered by the
 # pro deploy notebook (06b) if left blank.
-sql_warehouse_id = ""
+sql_warehouse_id = "2f2c504485282e9a"
 
 # Published Genie space + AI/BI dashboard embedded in the Dashboard tab (pro mode).
 # Left blank: the pro deploy notebook (06b) discovers the Genie space by name and an

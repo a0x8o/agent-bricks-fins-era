@@ -34,6 +34,7 @@ independently gated, so a partially-configured deploy degrades gracefully:
 | `DATABRICKS_WAREHOUSE_ID` | SQL warehouse for the Graph + Data Explorer tabs |
 | `GRAPH_CATALOG` / `GRAPH_SCHEMA` | Location of `graphrag_vertices`, `graphrag_edges`, `ticker_data` |
 | `GENIE_SPACE_ID` / `GENIE_EMBED_URL` | Embedded Genie space (id or explicit published embed URL) |
+| `GENIE_CHAT` | `true` routes chat to the Genie space instead of the serving endpoint (off by default) |
 | `AIBI_DASHBOARD_ID` / `AIBI_EMBED_URL` | Embedded AI/BI dashboard (id or explicit published embed URL) |
 
 New pro-mode API endpoints (server): `GET /api/graph` (node/edge data) and

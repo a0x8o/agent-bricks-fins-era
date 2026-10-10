@@ -1,40 +1,60 @@
 <!--
-GRAFTED FILE - MODIFIED FROM ORIGINAL
-Source repo   : alexxx-db/agent-bricks-fins-legal
-Source path   : docs/ARCHITECTURE.md
-Source commit : cf640d0 (2026-03-23)
-Grafted into  : agent-bricks-fins-era on 2026-08-03
-Modifications : provenance header added; see this repo's git history for
-                all subsequent changes.
-License       : Databricks DB license - see LICENSE.md and NOTICE.md at the
-                root of this repository. Provided AS-IS.
+This page describes *this* repo. Earlier drafts were grafted from a
+manufacturing/legal Streamlit demo and named the wrong app, Genies, and ingest path.
 -->
 
 # Architecture (one page)
 
-One-page view of how the demo fits together. For full context see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) and [DEMO_SCRIPT.md](DEMO_SCRIPT.md).
+Two serving stories share this repository. They are not interchangeable.
 
 ```
+  Workshop path (Layer A — what attendees hit)
+  --------------------------------------------
   User
     │
     ▼
-  Streamlit Chatbot (app/streamlit-chatbot-app)
-    │  SERVING_ENDPOINT, MLFLOW_EXPERIMENT_ID
-    │  Responses API (streaming), client_request_id → MLflow feedback
+  Chatbot App (React + Express, Databricks Apps)
+    │  DATABRICKS_SERVING_ENDPOINT = Agent Bricks MAS
+    │  Lakebase (ai_chatbot) for chat history
     ▼
-  Databricks Serving Endpoint (MAS)
-    │  Routes by intent (supply chain / finance analytics / document Q&A)
-    ▼
-  ┌─────────────────────┬─────────────────────┬─────────────────────────────┐
-  │ Supply Chain Genie  │  Finance Genie      │  SEC Finance KA (optional)  │
-  │ Text-to-SQL         │  Text-to-SQL        │  RAG over 10-K/10-Q/8-K      │
-  │                     │                     │  Vector Search index         │
-  ▼                     ▼                     ▼
-  UC tables             UC tables            UC Volume + Delta chunks table
-  (inventory, demand,   (sales, COGS,         → Vector Search index
-   supply, suppliers)     distributors)        (finance_docs_chunks_index)
+  Multi-Agent Supervisor  (config.sa_name)
+    ├─ Knowledge Assistant   (filings on the UC volume)
+    ├─ Genie space           (ticker_data)
+    ├─ generate_vega_lite_spec
+    ├─ get_company_summary / compare_companies   (GraphRAG UC functions, not MCP)
+    └─ You.com UC functions or optional you-mcp
+
+  ERA path (Layers B/C — additive, not the app default)
+  -----------------------------------------------------
+  python -m era.agent.log_and_deploy --deploy
+    → UC model {catalog}.{schema}.era_supervisor
+    → serving endpoint era-supervisor
+    → plan / act / synthesize / critique
+    → redaction gate + provenance tags
+    → databricks bundle run era_release_gate   (must exit 0)
 ```
 
-**Data flow (document Q&A):** Staging → ingest job → UC Volume (10k/10q/8k) → chunk job → `finance_docs_chunks` → Vector Search index sync → KA retrieves at query time → MAS returns answer with citations.
+**Do not repoint the workshop app at `era-supervisor` until Milestone A is
+verified.** `log_and_deploy.py` never overwrites `mas-*-endpoint`. The chatbot
+already speaks the ResponsesAgent streaming contract; cutover is an env change
+plus `databricks bundle run grant_app_mas_permissions` is *not* that cutover —
+that job only restores CAN_QUERY on Agent Bricks children after an app bundle
+deploy.
 
-**Repo anchors:** Genie instructions `genie/mfg-*.md`; MAS + KA instructions `agent_bricks/*.md`; ingest + chunk jobs in `databricks.yml`; app `app/streamlit-chatbot-app/app.py`.
+## GraphRAG
+
+SQL Unity Catalog functions over `graphrag_vertices` / `graphrag_edges`. An
+earlier FastMCP-on-Apps design failed through the Agent Bricks MCP proxy on
+streaming requests (`httpx.ResponseNotRead`, ML-63338).
+
+## Company universe
+
+One list: `conf/companies.yaml`. 26 organisations, 19 tickers, 18 EDGAR filers
+— those counts are different on purpose. Synthetic documents are watermarked on
+every page.
+
+## Repo anchors
+
+- Workshop: `setup_instructor/`, `config.py`, `chatbot-app/`
+- ERA: `era/`, `conf/release_gate.yaml`, `resources/era.yml`
+- Corpus: `conf/companies.yaml`, `resources/fetch_filings.py`, `resources/generate_synthetic_docs.py`

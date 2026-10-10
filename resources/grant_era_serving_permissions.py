@@ -230,53 +230,8 @@ def main(argv: list[str] | None = None) -> int:
         f"ok  Genie {args.genie_space_id} warehouse={warehouse_id} run_as=OWNER"
     )
 
-    # Paid Search (ydc-index.io) is on a separate credit pool from Research and
-    # is currently 402. Fall back to the free-tier MCP function so ERA's Python
-    # parser still receives a JSON string. Domain policy is not enforced on the
-    # fallback path; restore the generated SQL once Search credits are topped up.
-    fallback_sql = f"""
-    CREATE OR REPLACE FUNCTION {catalog}.{schema}.era_you_search(
-      query STRING,
-      freshness STRING,
-      result_count INT,
-      include_domains STRING
-    )
-    RETURNS STRING
-    COMMENT 'Governed You.com search with free-tier fallback when paid Search returns 402'
-    RETURN (
-      SELECT
-        CASE
-          WHEN r.status_code = 200 THEN r.text
-          WHEN r.status_code = 402 THEN {catalog}.{schema}.you_web_search(query)
-          ELSE to_json(named_struct(
-                 'era_error', concat('You.com search returned HTTP ', CAST(r.status_code AS STRING)),
-                 'body', left(r.text, 500)
-               ))
-        END
-      FROM (
-        SELECT http_request(
-          conn    => 'you_search_http',
-          method  => 'GET',
-          path    => '/v1/search',
-          headers => map('X-API-Key', secret('era_you','api_key')),
-          params  => map_filter(
-            map(
-              'query',           query,
-              'count',           CAST(COALESCE(result_count, 5) AS STRING),
-              'freshness',       nullif(trim(COALESCE(freshness, '')), ''),
-              'include_domains', CASE WHEN nullif(trim(COALESCE(include_domains, '')), '') IS NOT NULL
-                                      THEN include_domains END,
-              'exclude_domains', CASE WHEN nullif(trim(COALESCE(include_domains, '')), '') IS NULL
-                                      THEN 'zacks.com,fool.com,benzinga.com,investorplace.com,simplywall.st,stocktwits.com,reddit.com,x.com,twitter.com,facebook.com,quora.com,medium.com,substack.com,seekingalpha.com,news.google.com,finance.yahoo.com,msn.com,newsbreak.com,insider.com,businessinsider.com' END
-            ),
-            (k, v) -> v IS NOT NULL
-          )
-        ) AS r
-      )
-    )
-    """
-    _sql(w, warehouse_id, fallback_sql, timeout_s=180)
-    print("ok  era_you_search 402 -> you_web_search fallback")
+    # era_you_search itself comes from era/connections/render_uc_functions.py, the
+    # one place its domain policy is defined. Do not redefine it here.
     for p in principals:
         _sql(
             w,

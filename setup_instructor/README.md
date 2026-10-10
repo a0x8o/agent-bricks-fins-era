@@ -55,7 +55,8 @@ Run each notebook in order. Steps 1-4 can be executed independently, but step 5 
 | 3 | `02_instructor_setup_genie.ipynb` | Genie Space for natural language SQL queries against ticker data |
 | 4 | `03_create_vegalite_uc_function_simple.ipynb` | UC Function for generating Vega-Lite chart specs |
 | 4b | `03b_create_youdotcom_uc_functions.ipynb` | **(Optional)** You.com web search, content extraction, and research UC functions |
-| 5 | `04_instructor_setup_sa.ipynb` | Multi-Agent Supervisor that orchestrates all three bricks above |
+| 4c | `05b_create_ontobricks_graphrag_OPTIONAL.ipynb` | **(Optional)** GraphRAG tables + `get_company_summary` / `compare_companies` UC functions |
+| 5 | `04_instructor_setup_sa.ipynb` | Multi-Agent Supervisor that orchestrates the bricks above (discovers 4b/4c if present) |
 | 6 | `06_deploy_chatbot_app.ipynb` | Chatbot App with Lakebase DB, connected to the Supervisor Agent |
 | 6b | `06b_deploy_chatbot_app_pro_OPTIONAL.ipynb` | **(Optional)** Switches the app to **pro mode** — knowledge-graph view, data explorer, embedded Genie + AI/BI dashboard, and a richer multi-agent "thinking" stream |
 | 7 | `05_create_mcp_server_OPTIONAL.ipynb` | **(Optional)** Adds You.com web search MCP server to the Supervisor |
@@ -71,7 +72,8 @@ workspace panel with:
 - an **embedded Genie space + AI/BI dashboard**, and
 - an animated **multi-agent "thinking"** indicator during long queries.
 
-To enable it: deploy the app with `06`, run `05b` (graph tables + UC functions),
+To enable it: run `05b` (graph tables + UC functions) before `04` — or re-run `04`
+afterwards so the Supervisor picks up the graph tools — deploy the app with `06`,
 (optionally) run `03c_create_aibi_dashboard_OPTIONAL` (creates + publishes the AI/BI
 dashboard for the Dashboard tab), then run `06b_deploy_chatbot_app_pro_OPTIONAL`. That
 notebook resolves the SQL warehouse, Genie space, and AI/BI dashboard, writes the pro
@@ -93,7 +95,7 @@ and redeploys. Set `sql_warehouse_id`, `genie_space_id`/`genie_embed_url`, and
 > proxy on streaming requests (`httpx.ResponseNotRead`; tracked in ML-63338). SQL UC
 > function tools register reliably, exactly like the chart and web-search tools.
 
-Steps 2-4 are independent and can be run in any order. Step 4b is optional and adds web search capabilities via You.com UC functions (requires a free API key — see below). Step 5 discovers the artifacts from steps 2-4 automatically by name. Step 6 deploys the chatbot app and requires the Supervisor from step 5. Step 7 is optional and requires the Supervisor from step 5 to already exist.
+Steps 2-4 are independent and can be run in any order. Steps 4b and 4c are optional and add web search (You.com free tier, no API key) and GraphRAG tools. Step 5 discovers the artifacts from steps 2-4c automatically by name, so run the optional ones **before** it. If you add one later, re-run step 5: it updates the existing Supervisor in place rather than creating a second one. Step 6 deploys the chatbot app and requires the Supervisor from step 5. Step 7 is optional and requires the Supervisor from step 5 to already exist.
 
 ### Step 4b: You.com Web Search UC Functions (Optional)
 
@@ -108,7 +110,7 @@ Adds three UC functions that call the [You.com MCP server](https://docs.you.com/
 **Prerequisites:**
 1. USAGE + CREATE permissions on your catalog.schema
 2. That's it! No API key needed.
-3. **Run `03b_create_youdotcom_uc_functions.ipynb`** — creates the UC functions and adds them to the Supervisor
+3. **Run `03b_create_youdotcom_uc_functions.ipynb`** — creates the UC functions; step 5 (`04`) wires them into the Supervisor
 
 **Functions created:**
 | Function | Description |
@@ -117,7 +119,7 @@ Adds three UC functions that call the [You.com MCP server](https://docs.you.com/
 | `you_content_extract` | Full page content extraction from URLs (markdown/HTML) |
 | `you_research` | Deep web research with content from multiple sources |
 
-> **Note:** Step 4b must be run **after** step 5 (Supervisor creation) since it adds the functions to the existing Supervisor. If running for the first time, run steps 1-5 first, then come back to 4b.
+> **Note:** Run step 4b **before** step 5 — `04` discovers the functions by name when it builds the Supervisor. If the Supervisor already exists, re-run `04` after 4b; it updates the Supervisor in place.
 
 ### Step 6: Chatbot App Deployment
 

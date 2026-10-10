@@ -46,7 +46,6 @@ import {
   askGenie,
   type GenieFullResponse,
   type GenieMessageStatus,
-  setGenieTokenOverride,
 } from '../lib/genie-client';
 import { generateVegaLiteSpec } from '../lib/auto-chart';
 
@@ -58,59 +57,6 @@ const streamCache = new StreamCache();
 const genieConversations = new Map<string, string>();
 // Apply auth middleware to all chat routes
 chatRouter.use(authMiddleware);
-
-/**
- * GET /api/chat/genie-health - Diagnostic endpoint.
- * Tests Genie API connectivity with both user token and SP token.
- * Visit in browser to see which auth path works.
- */
-chatRouter.get('/genie-health', requireAuth, async (req: Request, res: Response) => {
-  const genieSpaceId = process.env.GENIE_SPACE_ID;
-  if (!genieSpaceId) {
-    res.json({ ok: false, error: 'GENIE_SPACE_ID not set' });
-    return;
-  }
-
-  const userToken = req.headers['x-forwarded-access-token'] as string | undefined;
-  const results: Record<string, unknown> = {
-    genieSpaceId,
-    userTokenPresent: !!userToken,
-    userTokenPrefix: userToken ? userToken.substring(0, 12) + '...' : null,
-    forwardedHeaders: {} as Record<string, string>,
-  };
-
-  // Collect all x-forwarded headers
-  for (const [k, v] of Object.entries(req.headers)) {
-    if (k.startsWith('x-forwarded')) {
-      (results.forwardedHeaders as Record<string, string>)[k] = typeof v === 'string' ? v.substring(0, 40) + (v.length > 40 ? '...' : '') : String(v);
-    }
-  }
-
-  // Test 1: try user token
-  if (userToken) {
-    try {
-      setGenieTokenOverride(userToken);
-      const resp = await askGenie(genieSpaceId, 'health check', undefined);
-      results.userTokenTest = { ok: true, conversationId: resp.message.conversation_id };
-    } catch (err) {
-      results.userTokenTest = { ok: false, error: err instanceof Error ? err.message : String(err) };
-    } finally {
-      setGenieTokenOverride(null);
-    }
-  }
-
-  // Test 2: try SP token (no override)
-  try {
-    setGenieTokenOverride(null);
-    const resp = await askGenie(genieSpaceId, 'health check', undefined);
-    results.spTokenTest = { ok: true, conversationId: resp.message.conversation_id };
-  } catch (err) {
-    results.spTokenTest = { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
-
-  console.log('[Genie Health]', JSON.stringify(results, null, 2));
-  res.json(results);
-});
 
 /**
  * POST /api/chat - Send a message and get streaming response
@@ -157,14 +103,17 @@ chatRouter.post('/', requireAuth, async (req: Request, res: Response) => {
       return res.status(response.status).json(response.json);
     }
 
-    let chat: Awaited<ReturnType<typeof checkChatAccess>>['chat'] = null as any;
-    let allowed = true;
-    let reason: string | undefined = 'not_found';
+    // Fail closed: if ownership can't be verified, don't touch the chat.
+    // (Ephemeral mode doesn't throw here - getChatById returns null.)
+    let access: Awaited<ReturnType<typeof checkChatAccess>>;
     try {
-      ({ chat, allowed, reason } = await checkChatAccess(id, session?.user.id));
+      access = await checkChatAccess(id, session?.user.id);
     } catch (err) {
-      console.error('[Chat] checkChatAccess failed (continuing ephemeral):', err);
+      console.error('[Chat] checkChatAccess failed:', err);
+      const response = new ChatSDKError('offline:chat').toResponse();
+      return res.status(response.status).json(response.json);
     }
+    const { chat, allowed, reason } = access;
 
     if (reason !== 'not_found' && !allowed) {
       const error = new ChatSDKError('forbidden:chat');
@@ -237,9 +186,11 @@ chatRouter.post('/', requireAuth, async (req: Request, res: Response) => {
     const streamId = generateUUID();
 
     // ── Genie-gated path ──────────────────────────────────────────────
+    // GENIE_SPACE_ID alone only configures the Dashboard tab; chat goes to
+    // Genie only when GENIE_CHAT=true opts in explicitly.
     const genieSpaceId = process.env.GENIE_SPACE_ID;
 
-    if (genieSpaceId) {
+    if (genieSpaceId && process.env.GENIE_CHAT === 'true') {
       // Route through Databricks Genie API
       console.log(`[Chat] Routing to Genie space ${genieSpaceId}`);
 
@@ -248,22 +199,6 @@ chatRouter.post('/', requireAuth, async (req: Request, res: Response) => {
       // Fallback: GENIE_PAT env var, then SP token (needs workspace ACL).
       const userAccessToken =
         req.headers['x-forwarded-access-token'] as string | undefined;
-      console.log(
-        `[Chat] Token diag: x-forwarded-access-token ${userAccessToken ? 'PRESENT (' + userAccessToken.substring(0, 8) + '...)' : 'ABSENT'}`,
-      );
-      // Log all x-forwarded headers for diagnostics
-      for (const [k, v] of Object.entries(req.headers)) {
-        if (k.startsWith('x-forwarded')) {
-          console.log(`[Chat] Header ${k}: ${typeof v === 'string' ? v.substring(0, 30) : v}`);
-        }
-      }
-      if (userAccessToken) {
-        console.log('[Chat] Using user forwarded access token for Genie');
-        setGenieTokenOverride(userAccessToken);
-      } else {
-        console.log('[Chat] No user token — using SP token for Genie');
-        setGenieTokenOverride(null);
-      }
 
       // Extract plain-text question from the latest user message
       const userQuestion =
@@ -319,6 +254,7 @@ chatRouter.post('/', requireAuth, async (req: Request, res: Response) => {
                   writer.write({ type: 'reasoning-delta', id: reasoningId, delta: label + '\n' });
                 }
               },
+              userAccessToken,
             );
 
             // Remember conversation for multi-turn
@@ -412,7 +348,6 @@ chatRouter.post('/', requireAuth, async (req: Request, res: Response) => {
             writeText(`**Genie API Error**\n\n${errorMsg}\n\nPlease try opening the app in an incognito window to refresh your auth token.`);
           } finally {
             closeReasoning();
-            setGenieTokenOverride(null);
           }
         },
         onFinish: async ({ responseMessage }) => {
@@ -420,8 +355,6 @@ chatRouter.post('/', requireAuth, async (req: Request, res: Response) => {
           // unhandled rejections through the stream pipeline, crashing Node.
           // Nothing in onFinish is worth crashing for.
           try {
-            // Clear per-request token override (belt-and-suspenders)
-            setGenieTokenOverride(null);
             if (isDatabaseAvailable()) {
               console.log('[Genie] Saving response message');
               try {

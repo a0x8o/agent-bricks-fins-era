@@ -380,14 +380,15 @@ class _SeqSql:
         return payload if isinstance(payload, str) else json.dumps(payload)
 
 
-def test_402_falls_back_to_free_tier_search(sink):
+def test_402_fails_closed_instead_of_falling_back_to_ungoverned_search(sink):
+    """The free tier has no domain policy; falling back would cite denylisted sites."""
     sql = _SeqSql(
         {"era_error": "You.com search returned HTTP 402", "body": "payment_required"},
-        {"results": {"web": [{"url": "https://reuters.com/a", "title": "A"}]}},
+        {"results": {"web": [{"url": "https://reddit.com/r/x", "title": "X"}]}},
     )
-    resp = you_fast.search("q", catalog=CATALOG, schema=SCHEMA, executor=sql, sink=sink)
-    assert resp.urls == {"https://reuters.com/a"}
-    assert "you_web_search" in sql.statements[1]
+    with pytest.raises(you_fast.ToolError, match="402"):
+        you_fast.search("q", catalog=CATALOG, schema=SCHEMA, executor=sql, sink=sink)
+    assert len(sql.statements) == 1
 
 
 def test_401_is_still_reported_as_a_credential_problem(sink):
