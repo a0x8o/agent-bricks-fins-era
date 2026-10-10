@@ -169,7 +169,8 @@ seriesRouter.get('/', requireAuth, async (req: Request, res: Response) => {
 
   try {
     const result = await executeSql(
-      `SELECT CAST(Date AS STRING) AS date, symbol AS ticker, ` +
+      // ISO yyyy-MM-dd parses reliably as Vega temporal in every browser.
+      `SELECT DATE_FORMAT(Date, 'yyyy-MM-dd') AS date, symbol AS ticker, ` +
         `CAST(${column} AS DOUBLE) AS value FROM ${table} ${clause} ` +
         `ORDER BY symbol, Date`,
       [...params],
