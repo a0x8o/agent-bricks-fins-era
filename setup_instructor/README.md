@@ -81,12 +81,10 @@ environment into the app, grants the app service principal the needed read permi
 and redeploys. Set `sql_warehouse_id`, `genie_space_id`/`genie_embed_url`, and
 `aibi_dashboard_id`/`aibi_embed_url` in `config.py` to pin exactly what is used/embedded.
 
-> **Embedding (Dashboard tab):** to render the AI/BI dashboard inside the app, a
-> workspace admin must allow the app domain: **Settings → Security → Embed dashboards →
-> Allow approved domains → add `*.databricksapps.com`** (governs dashboards and Genie).
-> The published AI/BI dashboard then embeds via `/embed/dashboardsv3/<id>`. Note: the
-> interactive Genie *room* page is not iframe-embeddable, so the Dashboard tab offers an
-> "Open ↗" launch link for Genie alongside the embedded AI/BI dashboard.
+> **Dashboard tab:** rendered natively in the app from `ticker_data`, the document tables
+> and the ERA payload log via the SQL warehouse (`/api/dashboard-data`) - no iframes, so no
+> workspace embedding setting is needed. It appears whenever the warehouse is configured.
+> The published AI/BI dashboard from `03c` stays useful in the workspace itself.
 
 > **GraphRAG note:** `05b` builds the `graphrag_*` tables (used by the pro Graph tab) and
 > creates two **SQL UC functions** (`get_company_summary`, `compare_companies`) that the
