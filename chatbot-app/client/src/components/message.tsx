@@ -164,14 +164,15 @@ const PurePreviewMessage = ({
                     <MessageContent
                       data-testid="message-content"
                       className={cn({
-                        'w-fit break-words rounded-2xl px-3 py-2 text-right text-white':
+                        'w-fit break-words rounded-2xl px-3 py-2 text-right':
                           message.role === 'user',
                         'bg-transparent px-0 py-0 text-left':
                           message.role === 'assistant',
                       })}
                       style={
                         message.role === 'user'
-                          ? { backgroundColor: '#006cff' }
+                          ? // YDC Smoky Rose bubble + Navy text (~9.0:1 contrast, WCAG AAA)
+                            { backgroundColor: '#E8E1F8', color: '#222B5F' }
                           : undefined
                       }
                     >
