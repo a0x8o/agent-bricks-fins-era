@@ -52,6 +52,7 @@ Run each notebook in order. Steps 1-4 can be executed independently, but step 5 
 | 0 | `../config.py` | **[EDIT FIRST]** Configure catalog, schema, volume names, and supervisor agent name |
 | 1 | `00_tables_setup.ipynb` | **[RUN FIRST]** Creates schema, volume, uploads data files, and builds ticker data tables |
 | 2 | `01_instructor_setup_ka.ipynb` | Knowledge Assistant with financial document sources (10-K, 10-Q, earnings) |
+| 2b | `01b_create_doc_search.py` | **(When KA is unavailable)** Vector Search index over the corpus + `search_filings` UC function; `04` uses it as the document agent if no Knowledge Assistant exists |
 | 3 | `02_instructor_setup_genie.ipynb` | Genie Space for natural language SQL queries against ticker data |
 | 4 | `03_create_vegalite_uc_function_simple.ipynb` | UC Function for generating Vega-Lite chart specs |
 | 4b | `03b_create_youdotcom_uc_functions.ipynb` | **(Optional)** You.com web search, content extraction, and research UC functions |

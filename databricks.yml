@@ -8,6 +8,19 @@ bundle:
 include:
   - resources/era.yml
 
+sync:
+  # The generated corpus is gitignored (reproducible) but 00_tables_setup uploads
+  # everything under data/, so ship it with the bundle.
+  include:
+    - data/edgar_10k/**
+    - data/edgar_10q/**
+    - data/synthetic/**
+  # Local scratch that is untracked but not ignored.
+  exclude:
+    - archive/**
+    - img/**
+    - tmp/**
+
 targets:
   dev:
     mode: development
