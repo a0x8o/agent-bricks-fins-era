@@ -58,7 +58,7 @@ Run each notebook in order. Steps 1-4 can be executed independently, but step 5 
 | 4b | `03b_create_youdotcom_uc_functions.ipynb` | **(Optional)** You.com web search, content extraction, and research UC functions |
 | 4c | `05b_create_ontobricks_graphrag_OPTIONAL.ipynb` | **(Optional)** GraphRAG tables + `get_company_summary` / `compare_companies` UC functions |
 | 5 | `04_instructor_setup_sa.ipynb` | Multi-Agent Supervisor that orchestrates the bricks above (discovers 4b/4c if present) |
-| 6 | `06_deploy_chatbot_app.ipynb` | Chatbot App with Lakebase DB, connected to the Supervisor Agent |
+| 6 | `06_deploy_chatbot_app.ipynb` | Chatbot App with Lakebase DB, connected to the Supervisor Agent — or, if `serving_endpoint_name` is set in `config.py` (e.g. `"era-supervisor"` where the MAS can't be created), to that endpoint. Deploy ERA first: `python -m era.agent.log_and_deploy --warehouse-id <id> --genie-space-id <id> --deploy` |
 | 6b | `06b_deploy_chatbot_app_pro_OPTIONAL.ipynb` | **(Optional)** Switches the app to **pro mode** — knowledge-graph view, data explorer, embedded Genie + AI/BI dashboard, and a richer multi-agent "thinking" stream |
 | 7 | `05_create_mcp_server_OPTIONAL.ipynb` | **(Optional)** Adds You.com web search MCP server to the Supervisor |
 

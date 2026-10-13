@@ -65,7 +65,34 @@ def load_config() -> dict:
     return ns
 
 
-def build_resources(*, llm_endpoint, ka_endpoint, genie_space_id, warehouse_id, catalog, schema):
+def function_exists(full_name: str) -> bool:
+    from databricks.sdk import WorkspaceClient
+
+    try:
+        WorkspaceClient().functions.get(full_name)
+        return True
+    except Exception:
+        return False
+
+
+def resolve_tools(args, catalog: str, schema: str) -> tuple[str, bool]:
+    """
+    (document search function or "", governed web search available?).
+
+    search_filings stands in for the KA only when no KA endpoint is given. Web search
+    is declared only if era_you_search exists: its UC HTTP connections need CREATE
+    CONNECTION, which some accounts withhold, and declaring a missing function as a
+    resource fails the deploy.
+    """
+    doc_fn = args.doc_search_function
+    if not doc_fn and not args.ka_endpoint:
+        candidate = f"{catalog}.{schema}.search_filings"
+        doc_fn = candidate if function_exists(candidate) else ""
+    return doc_fn, function_exists(f"{catalog}.{schema}.era_you_search")
+
+
+def build_resources(*, llm_endpoint, ka_endpoint, genie_space_id, warehouse_id, catalog, schema,
+                    doc_search_function="", web_search=True):
     """Declare everything the endpoint must be entitled to reach."""
     from mlflow.models.resources import (
         DatabricksFunction,
@@ -74,19 +101,25 @@ def build_resources(*, llm_endpoint, ka_endpoint, genie_space_id, warehouse_id, 
         DatabricksSQLWarehouse,
         DatabricksTable,
         DatabricksUCConnection,
+        DatabricksVectorSearchIndex,
     )
 
     resources = [DatabricksServingEndpoint(endpoint_name=llm_endpoint)]
     if ka_endpoint:
         resources.append(DatabricksServingEndpoint(endpoint_name=ka_endpoint))
+    if doc_search_function:
+        resources.append(DatabricksFunction(function_name=doc_search_function))
+        # search_filings reads this index via vector_search(); see setup_instructor/01b.
+        resources.append(DatabricksVectorSearchIndex(index_name=f"{catalog}.{schema}.doc_chunks_index"))
     if genie_space_id:
         resources.append(DatabricksGenieSpace(genie_space_id=genie_space_id))
     if warehouse_id:
         resources.append(DatabricksSQLWarehouse(warehouse_id=warehouse_id))
-    for fn in ("era_you_search", "era_you_contents", "you_web_search", "you_content_extract"):
-        resources.append(DatabricksFunction(function_name=f"{catalog}.{schema}.{fn}"))
-    for conn in ("you_search_http", "you_research_http"):
-        resources.append(DatabricksUCConnection(connection_name=conn))
+    if web_search:
+        for fn in ("era_you_search", "era_you_contents", "you_web_search", "you_content_extract"):
+            resources.append(DatabricksFunction(function_name=f"{catalog}.{schema}.{fn}"))
+        for conn in ("you_search_http", "you_research_http"):
+            resources.append(DatabricksUCConnection(connection_name=conn))
     # Audit is written by the agent; ticker_data is what Genie reads as VIEWER.
     resources.append(DatabricksTable(table_name=f"{catalog}.{schema}.egress_audit"))
     resources.append(DatabricksTable(table_name=f"{catalog}.{schema}.ticker_data"))
@@ -112,6 +145,9 @@ def log_and_register(args) -> tuple[str, int]:
     mlflow.set_experiment(experiment)
     logger.info("experiment: %s", experiment)
 
+    doc_fn, web = resolve_tools(args, catalog, schema)
+    logger.info("documents: %s | web search: %s",
+                args.ka_endpoint or doc_fn or "none", "on" if web else "off (no era_you_search)")
     resources = build_resources(
         llm_endpoint=args.llm_endpoint,
         ka_endpoint=args.ka_endpoint,
@@ -119,6 +155,8 @@ def log_and_register(args) -> tuple[str, int]:
         warehouse_id=args.warehouse_id,
         catalog=catalog,
         schema=schema,
+        doc_search_function=doc_fn,
+        web_search=web,
     )
 
     example = ResponsesAgentRequest(
@@ -159,6 +197,9 @@ def deploy(model_name: str, version: int, args) -> None:
         "ERA_GENIE_SPACE_ID": args.genie_space_id or "",
         "ERA_WAREHOUSE_ID": args.warehouse_id or "",
     }
+    doc_fn, web = resolve_tools(args, catalog, schema)
+    env["ERA_DOC_SEARCH_FUNCTION"] = doc_fn
+    env["ERA_WEB_SEARCH"] = "on" if web else "off"
     if args.you_api_key_env:
         # The Python research tools read YOU_API_KEY from the environment - they do
         # not resolve secret() the way the UC functions do. Passed as a secret
@@ -185,6 +226,9 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--llm-endpoint", default="databricks-claude-sonnet-4-5")
     p.add_argument("--ka-endpoint", default="")
+    p.add_argument("--doc-search-function", default="",
+                   help="UC document search function used when no --ka-endpoint is given. "
+                        "Defaults to <catalog>.<schema>.search_filings if it exists (01b).")
     p.add_argument("--genie-space-id", default="")
     p.add_argument("--warehouse-id", default="")
     p.add_argument("--catalog", default="")

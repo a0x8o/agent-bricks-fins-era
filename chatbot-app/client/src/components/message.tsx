@@ -171,8 +171,8 @@ const PurePreviewMessage = ({
                       })}
                       style={
                         message.role === 'user'
-                          ? // YDC Orchid bubble + Navy text (~7.9:1 contrast, WCAG AAA)
-                            { backgroundColor: '#D3BDFF', color: '#222B5F' }
+                          ? // YDC Smoky Rose bubble + Navy text (~9.0:1 contrast, WCAG AAA)
+                            { backgroundColor: '#E8E1F8', color: '#222B5F' }
                           : undefined
                       }
                     >

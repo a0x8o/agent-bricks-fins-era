@@ -15,6 +15,7 @@ from era.tools.internal_bricks import (
     ask_documents,
     extract_tables,
     query_data,
+    search_documents,
 )
 
 SPACE = "space-1"
@@ -292,3 +293,39 @@ def test_citations_to_the_same_page_collapse_to_one_source():
         ],
     })
     assert ask_documents("q", endpoint="ka", client=client).lineage == ("/Volumes/c/s/v/a.pdf#page=1",)
+
+
+# ---------------------------------------------------------------------------
+# search_filings (Knowledge Assistant stand-in)
+# ---------------------------------------------------------------------------
+
+class _Scalar:
+    def __init__(self, text):
+        self.text, self.calls = text, []
+
+    def scalar(self, statement, params):
+        self.calls.append((statement, params))
+        return self.text
+
+
+def test_search_documents_takes_lineage_from_passage_headers():
+    text = (
+        "[edgar_10k/F 10-K 2025.pdf p.3]\nSupply chain...\n\n---\n\n"
+        "[synthetic/Addepar_SYNTHETIC_2025.pdf p.1 | SYNTHETIC - illustrative, figures invented]\nAddepar...\n\n---\n\n"
+        "[edgar_10k/F 10-K 2025.pdf p.3]\nmore of the same page"
+    )
+    ex = _Scalar(text)
+    result = search_documents("ford risks", function="c.s.search_filings", executor=ex)
+    assert result.lineage == (
+        "edgar_10k/F 10-K 2025.pdf#page=3",
+        "synthetic/Addepar_SYNTHETIC_2025.pdf#page=1",
+        "edgar_10k/F 10-K 2025.pdf",
+        "synthetic/Addepar_SYNTHETIC_2025.pdf",
+    )
+    assert result.answer == text and result.source == "document_search"
+    assert ex.calls[0] == ("SELECT c.s.search_filings(:q)", [{"name": "q", "value": "ford risks"}])
+
+
+def test_search_documents_with_no_passages_is_an_error_not_an_empty_answer():
+    with pytest.raises(InternalToolError):
+        search_documents("q", function="c.s.search_filings", executor=_Scalar(""))

@@ -9,7 +9,8 @@ ACLs are easy to omit. The chatbot then gets a fully [OPS] answer even though
 the bricks themselves are healthy.
 
 Serving principals are discovered from Unity Catalog EXECUTE grants on
-``era_you_search`` (one SP per deployed model version). The KA endpoint, Genie
+``era_you_search`` or ``search_filings`` (one SP per deployed model version; the
+deploy grants EXECUTE on whichever functions it declared). The KA endpoint, Genie
 space and warehouse are read from the deployed endpoint's environment (what ERA
 actually calls), falling back to ``config.py``; flags override both.
 
@@ -81,7 +82,7 @@ def discover_serving_sps(w, warehouse_id: str, catalog: str, schema: str) -> lis
         FROM system.information_schema.routine_privileges
         WHERE routine_catalog = '{catalog}'
           AND routine_schema = '{schema}'
-          AND routine_name = 'era_you_search'
+          AND routine_name IN ('era_you_search', 'search_filings')
           AND privilege_type = 'EXECUTE'
         """,
     )
@@ -182,6 +183,8 @@ def main(argv: list[str] | None = None) -> int:
         f"GRANT EXECUTE ON FUNCTION `{catalog}`.`{schema}`.era_you_contents TO `{{p}}`",
         f"GRANT EXECUTE ON FUNCTION `{catalog}`.`{schema}`.you_web_search TO `{{p}}`",
         f"GRANT EXECUTE ON FUNCTION `{catalog}`.`{schema}`.you_content_extract TO `{{p}}`",
+        f"GRANT EXECUTE ON FUNCTION `{catalog}`.`{schema}`.search_filings TO `{{p}}`",
+        f"GRANT SELECT ON TABLE `{catalog}`.`{schema}`.doc_chunks_index TO `{{p}}`",
         "GRANT USE CONNECTION ON CONNECTION you_search_http TO `{p}`",
         "GRANT USE CONNECTION ON CONNECTION you_research_http TO `{p}`",
     ]
@@ -245,7 +248,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"skip Genie {p}: {exc}")
 
     # era_you_search itself comes from era/connections/render_uc_functions.py, the
-    # one place its domain policy is defined. Do not redefine it here.
+    # one place its domain policy is defined. Do not redefine it here. Skipped when the
+    # endpoint runs without governed web search (no UC HTTP connections on the account).
+    if env.get("ERA_WEB_SEARCH", "").lower() == "off":
+        return 0
     for p in principals:
         _sql(
             w,

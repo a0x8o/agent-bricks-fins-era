@@ -9,6 +9,10 @@ table = "parsed_data"
 volume_name = "raw_documents"
 base_url = "https://github.com/databricks-industry-solutions/agent-bricks-fins-mag7"
 sa_name = "Supervisor_Agent_ERA"
+# Serving endpoint the chatbot app talks to. Blank = the Agent Bricks MAS above (the
+# workshop default). Set to "era-supervisor" to front the code-first ERA agent instead -
+# a deliberate choice, used where the account can no longer create a MAS.
+serving_endpoint_name = "era-supervisor"
 
 # Chatbot App Configuration
 app_name = "agent-bricks-chatbot"
@@ -38,7 +42,7 @@ app_mode = "simple"  # "simple" | "pro"
 # SQL warehouse the app uses to read graph/ticker tables (Statement Execution API).
 # Required for the Graph + Data Explorer tabs in pro mode. Auto-discovered by the
 # pro deploy notebook (06b) if left blank.
-sql_warehouse_id = ""
+sql_warehouse_id = "00a19186c27fa1de"
 
 # Published Genie space + AI/BI dashboard embedded in the Dashboard tab (pro mode).
 # Left blank: the pro deploy notebook (06b) discovers the Genie space by name and an

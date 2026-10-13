@@ -54,6 +54,12 @@ ENV_LLM = "ERA_LLM_ENDPOINT"
 ENV_KA = "ERA_KA_ENDPOINT"
 ENV_GENIE = "ERA_GENIE_SPACE_ID"
 ENV_WAREHOUSE = "ERA_WAREHOUSE_ID"
+# Fallback document tool where no Knowledge Assistant exists: the full name of the
+# search_filings UC function from setup_instructor/01b. Runs on ENV_WAREHOUSE.
+ENV_DOC_SEARCH = "ERA_DOC_SEARCH_FUNCTION"
+# "off" drops the governed You.com search/contents tools - set by log_and_deploy when
+# era_you_search doesn't exist (its UC HTTP connections need CREATE CONNECTION).
+ENV_WEB_SEARCH = "ERA_WEB_SEARCH"
 
 
 def _env(name: str, default: str = "") -> str:
@@ -96,9 +102,16 @@ def _documents_tool(question: str) -> dict:
     from era.tools import internal_bricks
 
     endpoint = _env(ENV_KA)
-    if not endpoint:
-        raise RuntimeError(f"{ENV_KA} is not set")
-    return dataclasses.asdict(internal_bricks.ask_documents(question, endpoint=endpoint))
+    if endpoint:
+        return dataclasses.asdict(internal_bricks.ask_documents(question, endpoint=endpoint))
+    from era.tools import you_fast
+
+    function, warehouse = _env(ENV_DOC_SEARCH), _env(ENV_WAREHOUSE)
+    if not (function and warehouse):
+        raise RuntimeError(f"neither {ENV_KA} nor {ENV_DOC_SEARCH} + {ENV_WAREHOUSE} is set")
+    return dataclasses.asdict(internal_bricks.search_documents(
+        question, function=function, executor=you_fast.WarehouseExecutor(warehouse)
+    ))
 
 
 def _data_tool(question: str) -> dict:
@@ -157,11 +170,13 @@ def build_tools() -> ToolBundle:
     tools rather than failing at request time - the supervisor already handles a
     missing tool by noting it, which is a better failure than a 500.
     """
+    web = bool(_env(ENV_WAREHOUSE)) and _env(ENV_WEB_SEARCH).lower() != "off"
+    has_docs = _env(ENV_KA) or (_env(ENV_DOC_SEARCH) and _env(ENV_WAREHOUSE))
     return ToolBundle(
-        ask_documents=_documents_tool if _env(ENV_KA) else None,
+        ask_documents=_documents_tool if has_docs else None,
         query_data=_data_tool if _env(ENV_GENIE) else None,
-        search=_search_tool if _env(ENV_WAREHOUSE) else None,
-        contents=_contents_tool if _env(ENV_WAREHOUSE) else None,
+        search=_search_tool if web else None,
+        contents=_contents_tool if web else None,
         submit_research=_research_tool if os.environ.get("YOU_API_KEY") else None,
     )
 

@@ -116,35 +116,31 @@ print(f"✅ Endpoint {VS_ENDPOINT} is ONLINE")
 # COMMAND ----------
 
 # Delta Sync index with managed embeddings. Created once; later runs re-sync it.
+# Plain REST rather than the SDK's typed request classes: the SDK preinstalled on serverless
+# is older and its EmbeddingSourceColumn lacks embedding_model_endpoint_name.
 from databricks.sdk.errors import NotFound
-from databricks.sdk.service.vectorsearch import (
-    DeltaSyncVectorIndexSpecRequest,
-    EmbeddingSourceColumn,
-    PipelineType,
-    VectorIndexType,
-)
 
 try:
     w.vector_search_indexes.get_index(VS_INDEX)
     try:
-        w.vector_search_indexes.sync_index(VS_INDEX)
+        w.api_client.do("POST", f"/api/2.0/vector-search/indexes/{VS_INDEX}/sync")
         print(f"Index {VS_INDEX} exists - sync triggered")
     except Exception as e:  # a sync already running is fine
         print(f"Index {VS_INDEX} exists - sync not triggered: {e}")
 except NotFound:
-    w.vector_search_indexes.create_index(
-        name=VS_INDEX,
-        endpoint_name=VS_ENDPOINT,
-        primary_key="chunk_id",
-        index_type=VectorIndexType.DELTA_SYNC,
-        delta_sync_index_spec=DeltaSyncVectorIndexSpecRequest(
-            source_table=CHUNKS_TABLE,
-            pipeline_type=PipelineType.TRIGGERED,
-            embedding_source_columns=[
-                EmbeddingSourceColumn(name="content", embedding_model_endpoint_name=EMBEDDING_MODEL)
+    w.api_client.do("POST", "/api/2.0/vector-search/indexes", body={
+        "name": VS_INDEX,
+        "endpoint_name": VS_ENDPOINT,
+        "primary_key": "chunk_id",
+        "index_type": "DELTA_SYNC",
+        "delta_sync_index_spec": {
+            "source_table": CHUNKS_TABLE,
+            "pipeline_type": "TRIGGERED",
+            "embedding_source_columns": [
+                {"name": "content", "embedding_model_endpoint_name": EMBEDDING_MODEL}
             ],
-        ),
-    )
+        },
+    })
     print(f"Creating index {VS_INDEX}...")
 
 for _ in range(120):  # up to 60 min; embedding ~12k pages takes a while

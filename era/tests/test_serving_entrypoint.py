@@ -92,6 +92,15 @@ def test_tools_are_gated_on_their_own_configuration(monkeypatch):
     assert tools.contents is None, "contents shares the warehouse gate with search"
 
 
+def test_search_filings_stands_in_for_the_ka_and_web_search_can_be_switched_off(monkeypatch):
+    monkeypatch.setenv(ep.ENV_WAREHOUSE, "wh-1")
+    monkeypatch.setenv(ep.ENV_DOC_SEARCH, "cat.sch.search_filings")
+    monkeypatch.setenv(ep.ENV_WEB_SEARCH, "off")
+    tools = ep.build_tools()
+    assert tools.ask_documents is not None
+    assert tools.search is None and tools.contents is None
+
+
 def test_missing_audit_config_is_loud_not_silent(caplog):
     """
     The in-memory default would make every egress decision vanish while the gate

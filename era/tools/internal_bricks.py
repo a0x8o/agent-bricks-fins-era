@@ -40,7 +40,7 @@ class InternalResult:
 
     answer: str
     lineage: tuple[str, ...]
-    source: str                      # "knowledge_assistant" | "genie"
+    source: str                      # "knowledge_assistant" | "document_search" | "genie"
     sql: str | None = None
     rows: tuple[tuple[Any, ...], ...] = ()
     columns: tuple[str, ...] = ()
@@ -211,6 +211,38 @@ def ask_documents(
     return InternalResult(
         answer=answer, lineage=lineage, source="knowledge_assistant", raw=payload
     )
+
+
+# ---------------------------------------------------------------------------
+# Document search - the Knowledge Assistant's stand-in
+# ---------------------------------------------------------------------------
+
+# setup_instructor/01b heads every passage search_filings returns with
+# "[<folder>/<file> p.<N>" (plus "| SYNTHETIC ..." for generated documents).
+_PASSAGE_RE = re.compile(r"^\[(?P<path>[^\]|\n]+?) p\.(?P<page>\d+)", re.M)
+
+
+class SqlScalarExecutor(Protocol):
+    def scalar(self, statement: str, params: list[dict]) -> str: ...
+
+
+def search_documents(question: str, *, function: str, executor: SqlScalarExecutor) -> InternalResult:
+    """
+    Search the corpus through the `search_filings` UC function (built by 01b where a
+    Knowledge Assistant can't be created). Returns the raw passages; lineage is each
+    passage's `<folder>/<file>#page=<N>` and `<folder>/<file>`, read from the header
+    01b writes - so a passage is citable exactly when its header is intact.
+    """
+    text = executor.scalar(f"SELECT {function}(:q)", [{"name": "q", "value": question}]) or ""
+    if not text.strip():
+        raise InternalToolError(f"{function} returned no passages")
+    # Page-level and document-level both count: a citation of the whole file names a
+    # document that was really read, just less precisely.
+    pages = [(m["path"].strip(), m["page"]) for m in _PASSAGE_RE.finditer(text)]
+    lineage = tuple(dict.fromkeys(
+        [f"{path}#page={page}" for path, page in pages] + [path for path, _ in pages]
+    ))
+    return InternalResult(answer=text, lineage=lineage, source="document_search")
 
 
 # ---------------------------------------------------------------------------
