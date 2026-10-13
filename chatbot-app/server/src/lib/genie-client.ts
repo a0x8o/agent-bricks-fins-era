@@ -38,7 +38,8 @@ export interface GenieMessage {
   status: GenieMessageStatus;
   attachments?: GenieAttachment[];
   created_at?: string;
-  error?: { message: string };
+  // MessageError in the API is { error, type }; `message` kept as a fallback.
+  error?: { error?: string; type?: string; message?: string };
 }
 
 export interface GenieQueryResult {
@@ -67,28 +68,16 @@ const TERMINAL_STATUSES: Set<GenieMessageStatus> = new Set([
   'QUERY_RESULT_EXPIRED',
 ]);
 
-// ─── Token override ──────────────────────────────────────────────────────────
-// When set (per-request), every Genie call uses this token instead of the SP.
-// The chat route sets this to the end-user's forwarded access token so that
-// Genie permissions are evaluated against the real user, not the app SP.
-
-let _tokenOverride: string | null = null;
-
-/** Set a per-request token override (call with null to clear). */
-export function setGenieTokenOverride(token: string | null): void {
-  _tokenOverride = token;
-}
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function genieHeaders(): Promise<Headers> {
-  // Priority: GENIE_PAT (dedicated Genie token) > override > SP token.
-  // The SP's all-apis token has the right OAuth scope but lacks workspace
-  // ACL on the Genie space. GENIE_PAT is a user PAT that carries the
-  // user's own workspace permissions (including CAN_MANAGE on the space).
+async function genieHeaders(userToken?: string): Promise<Headers> {
+  // Priority: the end user's forwarded token (Genie permissions evaluated
+  // against the real user) > GENIE_PAT > SP token. The token is passed per
+  // call, never stored at module level: concurrent requests must not see
+  // each other's credentials.
   const token =
+    userToken ||
     process.env.GENIE_PAT ||
-    _tokenOverride ||
     process.env.DATABRICKS_TOKEN ||
     (await getDatabricksToken());
   const h = new Headers();
@@ -104,9 +93,10 @@ function genieBase(): string {
 async function genieRequest<T>(
   path: string,
   init?: RequestInit,
+  token?: string,
 ): Promise<T> {
   const url = `${genieBase()}${path}`;
-  const headers = await genieHeaders();
+  const headers = await genieHeaders(token);
 
   const res = await fetch(url, {
     ...init,
@@ -128,6 +118,7 @@ async function genieRequest<T>(
 export async function startConversation(
   spaceId: string,
   content: string,
+  token?: string,
 ): Promise<GenieConversationStart> {
   console.log(`[Genie] Starting conversation in space ${spaceId}`);
   return genieRequest<GenieConversationStart>(
@@ -136,6 +127,7 @@ export async function startConversation(
       method: 'POST',
       body: JSON.stringify({ content }),
     },
+    token,
   );
 }
 
@@ -144,6 +136,7 @@ export async function sendMessage(
   spaceId: string,
   conversationId: string,
   content: string,
+  token?: string,
 ): Promise<{ message_id: string }> {
   console.log(
     `[Genie] Sending message in conversation ${conversationId}`,
@@ -154,6 +147,7 @@ export async function sendMessage(
       method: 'POST',
       body: JSON.stringify({ content }),
     },
+    token,
   );
 }
 
@@ -162,9 +156,12 @@ export async function getMessage(
   spaceId: string,
   conversationId: string,
   messageId: string,
+  token?: string,
 ): Promise<GenieMessage> {
   return genieRequest<GenieMessage>(
     `/${spaceId}/conversations/${conversationId}/messages/${messageId}`,
+    undefined,
+    token,
   );
 }
 
@@ -178,9 +175,10 @@ export async function pollMessage(
   conversationId: string,
   messageId: string,
   onStatus?: (status: GenieMessageStatus, attempt: number) => void,
+  token?: string,
 ): Promise<GenieMessage> {
   for (let attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
-    const msg = await getMessage(spaceId, conversationId, messageId);
+    const msg = await getMessage(spaceId, conversationId, messageId, token);
     onStatus?.(msg.status, attempt);
 
     if (TERMINAL_STATUSES.has(msg.status)) {
@@ -203,11 +201,39 @@ export async function getQueryResult(
   spaceId: string,
   conversationId: string,
   messageId: string,
+  token?: string,
 ): Promise<GenieQueryResult> {
   console.log(`[Genie] Fetching query result for message ${messageId}`);
-  return genieRequest<GenieQueryResult>(
+  const raw = await genieRequest<GenieQueryResultResponse>(
     `/${spaceId}/conversations/${conversationId}/messages/${messageId}/query-result`,
+    undefined,
+    token,
   );
+  // The API wraps the result in a Statement Execution response:
+  // { statement_response: { manifest: { schema: { columns } }, result: { data_array } } }.
+  // Reading columns/data_array at the top level found nothing, so no table or
+  // chart ever rendered. The flat shape is still accepted.
+  const sr = raw.statement_response;
+  if (!sr) return raw as GenieQueryResult;
+  return {
+    statement_id: sr.statement_id,
+    columns: sr.manifest?.schema?.columns,
+    data_array: sr.result?.data_array,
+    row_count: sr.manifest?.total_row_count,
+    truncated: sr.manifest?.truncated,
+  };
+}
+
+interface GenieQueryResultResponse extends GenieQueryResult {
+  statement_response?: {
+    statement_id?: string;
+    manifest?: {
+      schema?: { columns?: Array<{ name: string; type_name: string }> };
+      total_row_count?: number;
+      truncated?: boolean;
+    };
+    result?: { data_array?: string[][] };
+  };
 }
 
 // ─── High-level helper ───────────────────────────────────────────────────────
@@ -232,21 +258,28 @@ export async function askGenie(
   content: string,
   conversationId?: string,
   onStatus?: (status: GenieMessageStatus, attempt: number) => void,
+  token?: string,
 ): Promise<GenieFullResponse> {
   let convId: string;
   let msgId: string;
 
   if (conversationId) {
-    const resp = await sendMessage(spaceId, conversationId, content);
+    const resp = await sendMessage(spaceId, conversationId, content, token);
     convId = conversationId;
     msgId = resp.message_id;
   } else {
-    const resp = await startConversation(spaceId, content);
+    const resp = await startConversation(spaceId, content, token);
     convId = resp.conversation_id;
     msgId = resp.message_id;
   }
 
-  const message = await pollMessage(spaceId, convId, msgId, onStatus);
+  const message = await pollMessage(
+    spaceId,
+    convId,
+    msgId,
+    onStatus,
+    token,
+  );
 
   // Assemble narrative text from attachments
   const textParts =
@@ -264,7 +297,7 @@ export async function askGenie(
   let queryResult: GenieQueryResult | undefined;
   if (sql && message.status === 'COMPLETED') {
     try {
-      queryResult = await getQueryResult(spaceId, convId, msgId);
+      queryResult = await getQueryResult(spaceId, convId, msgId, token);
     } catch (err) {
       console.warn('[Genie] Failed to fetch query result:', err);
     }
@@ -277,7 +310,9 @@ export async function askGenie(
     sql,
     error:
       message.status === 'FAILED'
-        ? message.error?.message ?? 'Genie query failed'
+        ? message.error?.error ??
+          message.error?.message ??
+          'Genie query failed'
         : undefined,
   };
 }

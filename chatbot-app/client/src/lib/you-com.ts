@@ -3,12 +3,17 @@
  *
  * The workshop MAS exposes You.com as UC functions (`you_web_search`,
  * `you_content_extract`, `you_research`, `era_you_*`) and optionally as the
- * `you-mcp` connection. ERA uses the same names in the planner (`web_search`,
- * `web_contents`, `web_research`).
+ * `you-mcp` connection; the supervisor registers them as `Web_Search`,
+ * `Web_Content_Extractor` and `Web_Researcher`.
  */
 
+// Only names this project gives You.com tools: you_* / era_you_* functions,
+// the you-mcp connection, and the three agent names notebook 04 registers
+// (matched as whole names). Generic substrings like "web_search" inside other
+// tool names no longer get the You.com mark; ERA's web_* planner keys never
+// reach the UI as tool calls.
 const YOU_TOOL =
-  /you[._-]|youdotcom|you-mcp|web_search|web_contents|web_research|content_extract|you_research/i;
+  /you[._-]|youdotcom|(?:^|[^a-z0-9_])(?:web_search|web_content_extractor|web_researcher)$/i;
 
 const YOU_HOSTS = [
   'you.com',

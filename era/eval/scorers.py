@@ -213,7 +213,11 @@ def freshness(outputs: Any, expectations: dict | None = None) -> Feedback:
     if not stamped:
         return Feedback(value=0.0, rationale="Sources carry no retrieval timestamp, so recency cannot be established.")
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=MAX_SOURCE_AGE_DAYS)
+    # A saved answer (offline fixtures) is judged as of when it was produced, so the
+    # gate doesn't expire on the calendar; a live run has no stamp and uses now.
+    answered_at = outputs.get("answered_at") if isinstance(outputs, dict) else None
+    reference = (_parse_ts(answered_at) if answered_at else None) or datetime.now(timezone.utc)
+    cutoff = reference - timedelta(days=MAX_SOURCE_AGE_DAYS)
     fresh = 0
     for source in stamped:
         parsed_ts = _parse_ts(source.retrieved_at)

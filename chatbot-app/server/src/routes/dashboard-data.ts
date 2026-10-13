@@ -36,6 +36,9 @@ dashboardDataRouter.get('/', requireAuth, async (req: Request, res: Response) =>
     { source: '10-K Filings', table: `\`${catalog}\`.\`${schema}\`.\`10k_data\`` },
     { source: '10-Q Filings', table: `\`${catalog}\`.\`${schema}\`.\`10q_data\`` },
     { source: '8-K Filings', table: `\`${catalog}\`.\`${schema}\`.\`8k_data\`` },
+    { source: 'EDGAR 10-K', table: `\`${catalog}\`.\`${schema}\`.edgar_10k_data` },
+    { source: 'EDGAR 10-Q', table: `\`${catalog}\`.\`${schema}\`.edgar_10q_data` },
+    { source: 'Synthetic (illustrative)', table: `\`${catalog}\`.\`${schema}\`.synthetic_data` },
   ];
   const payload = `\`${catalog}\`.\`${schema}\`.era_supervisor_payload`;
 
@@ -63,10 +66,18 @@ dashboardDataRouter.get('/', requireAuth, async (req: Request, res: Response) =>
           `SELECT DATE_FORMAT(Date, 'yyyy-MM-dd') AS date, company_name, CAST(ev_ebitda AS DOUBLE) AS value ` +
           `FROM ${ticker} WHERE ev_ebitda IS NOT NULL AND DAYOFWEEK(Date) = 2 ORDER BY company_name, Date`,
         ),
-        // Research library document counts
-        executeSql(
-          docs.map(d => `SELECT '${d.source}' AS source, COUNT(*) AS doc_count FROM ${d.table}`).join(' UNION ALL ')
-        ),
+        // Research library document counts. One query per table: a workspace
+        // without a folder (e.g. no 8-K data) skips that row instead of
+        // failing the whole dashboard.
+        Promise.all(
+          docs.map((d) =>
+            executeSql(
+              `SELECT '${d.source}' AS source, COUNT(*) AS doc_count FROM ${d.table}`,
+            )
+              .then((r) => r.records[0] ?? null)
+              .catch(() => null),
+          ),
+        ).then((rows) => ({ records: rows.filter((r) => r !== null) })),
         // Agent operations summary
         executeSql(
           `SELECT COUNT(*) AS total_requests, ` +

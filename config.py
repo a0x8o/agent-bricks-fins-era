@@ -1,6 +1,6 @@
 # [EDIT FIRST] Catalog and schema where the workshop creates tables, functions,
 # volumes, and registers Genie/agents. The instructor sets these to their workspace.
-catalog = "alexxx"
+catalog = "fins"
 schema = dbName = db = "era_research"
 # Example (Brandon's FEVM working values):
 # catalog = "serverless_stable_lsryzn_catalog"

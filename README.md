@@ -206,10 +206,10 @@ data/
    - Creates catalog and schema (if they don't exist)
    - Creates Unity Catalog volume for documents
    - Uploads everything under `data/` to the volume, mirroring the folder structure
-   - Builds `ticker_data` from the CSV already in `data/ticker_data/` (Mag7 plus every
-     listed company in `conf/companies.yaml` once you have refreshed that CSV)
-   - To refresh prices, run `resources/download_ticker_data.py` on Databricks **before**
-     `00_tables_setup` — the setup notebook does not call yfinance itself
+   - Builds `ticker_data` from the committed Mag7 CSV in `data/ticker_data/`, then
+     replaces it with live yfinance prices for the Mag7 plus every listed company in
+     `conf/companies.yaml` (runs `resources/download_ticker_data.py`; needs outbound
+     internet — if the download fails, the Mag7 table from the CSV is kept)
    - Includes price, volume, and financial metrics
 
 ### Step 0.1 (recommended): Build the extended document corpus
@@ -746,7 +746,7 @@ them.
 
 Notebook **04** discovers the two UC functions by full name and registers them as
 Supervisor tools (`agent_type: function`). Re-run **`04_instructor_setup_sa.ipynb`**
-if the Supervisor already existed before 05b. There is no MCP connection and no
+if the Supervisor already existed before 05b — it updates the existing Supervisor in place. There is no MCP connection and no
 GraphRAG Databricks App in this path.
 
 After wiring, the Supervisor will have up to these tools (depending on optional phases):
@@ -996,7 +996,7 @@ agent-bricks-workshop/
 │   └── databricks.yml                     # Asset bundle config (parameterized)
 ├── resources/
 │   ├── data_setup_functions.py            # Helper functions for data setup
-│   ├── download_ticker_data.py            # Optional ticker CSV refresh (yfinance)
+│   ├── download_ticker_data.py            # Live ticker_data refresh (yfinance), run by 00
 │   ├── brick_setup_functions.py           # Agent Bricks helper functions
 │   ├── fetch_filings.py                   # EDGAR corpus builder
 │   ├── generate_synthetic_docs.py         # Watermarked synthetic PDFs
@@ -1009,9 +1009,9 @@ agent-bricks-workshop/
 **Execution Order**:
 1. **First**: Update `config.py` with your catalog/schema/volume/sa_name/app settings
 2. **Second**: Run `setup_instructor/00_tables_setup.ipynb`
-3. **Then**: Run setup notebooks 01-04 in `setup_instructor/` (in order)
-4. **Deploy App**: Run `06_deploy_chatbot_app` to deploy the chatbot with Lakebase
-5. **(Optional)**: Run `05_create_mcp_server_OPTIONAL` after completing step 3 and setting up a `you-mcp` UC connection
-6. **(Optional)**: Run `05b_create_ontobricks_graphrag_OPTIONAL` after completing step 3 (no external API key required)
+3. **Then**: Run setup notebooks 01-03 in `setup_instructor/`, plus the optional `03b` (You.com) and `05b` (GraphRAG, no external API key required)
+4. **Supervisor**: Run `04_instructor_setup_sa` — it discovers everything from step 3 by name. Re-running it after adding `03b`/`05b` updates the Supervisor in place.
+5. **Deploy App**: Run `06_deploy_chatbot_app` to deploy the chatbot with Lakebase
+6. **(Optional)**: Run `05_create_mcp_server_OPTIONAL` after `04`, once a `you-mcp` UC connection is set up
 
 **Congratulations!** You've built a comprehensive financial analysis multi-agent system that can analyze documents, query data, generate visualizations, search the web, query a stock knowledge graph, and coordinate complex analytical workflows.

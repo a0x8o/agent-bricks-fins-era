@@ -35,11 +35,11 @@ configRouter.get('/', async (_req: Request, res: Response) => {
     features: {
       chatHistory: isDatabaseAvailable(),
       proMode,
-      // SQL-backed panel tabs.
+      // SQL-backed panel tabs. The Dashboard tab is now rendered natively from
+      // /api/dashboard-data (no iframes), so it needs SQL, not embed URLs.
       graph: sqlBacked,
       dataExplorer: sqlBacked,
-      // Dashboard tab shows whatever embeds are configured.
-      dashboard: proMode && Boolean(embed.genieUrl || embed.dashboardUrl),
+      dashboard: sqlBacked,
     },
     embed,
   });

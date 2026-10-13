@@ -6,6 +6,7 @@ import { loadDemoTickers } from '@/lib/you-com';
 import { useMemo } from 'react';
 
 interface SummaryRow {
+  symbol: string | null;
   company_name: string | null;
   Date: string | null;
   price_close: string | null;
@@ -71,15 +72,19 @@ export function SummaryStrip() {
         </p>
       ) : (
         <div className="flex gap-2 overflow-x-auto pb-0.5">
-          {(isLoading ? tickers.map((t) => ({ company_name: t })) : rows).map(
+          {(isLoading
+            ? tickers.map((t) => ({ symbol: t }) as Partial<SummaryRow>)
+            : rows
+          ).map(
             (row, i) => {
-              const ticker = row.company_name ?? tickers[i] ?? '—';
+              const ticker = row.symbol ?? tickers[i] ?? '—';
               const price = Number(row.price_close);
               const mcap = Number(row.market_cap);
               return (
                 <button
                   key={ticker}
                   type="button"
+                  title={row.company_name ?? undefined}
                   onClick={() => open('data', { ticker })}
                   className={cn(
                     'min-w-[7.5rem] shrink-0 rounded-lg border bg-background px-2.5 py-1.5 text-left',

@@ -70,7 +70,8 @@
       "external_urls": [
         "https://reuters.com/a"
       ]
-    }
+    },
+    "answered_at": "2026-08-03T12:00:00Z"
   },
   "ext-002": {
     "answer": "Recent coverage reports a material move [EC:1].\nThe direction is consistent with prior quarters [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
@@ -79,7 +80,8 @@
       "external_urls": [
         "https://reuters.com/a"
       ]
-    }
+    },
+    "answered_at": "2026-08-03T12:00:00Z"
   },
   "ext-003": {
     "answer": "Recent coverage reports a material move [EC:1].\nThe direction is consistent with prior quarters [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
@@ -88,7 +90,8 @@
       "external_urls": [
         "https://reuters.com/a"
       ]
-    }
+    },
+    "answered_at": "2026-08-03T12:00:00Z"
   },
   "bld-001": {
     "answer": "Reported revenue was $47.5B [IV:alexxx.era_research.parsed_data].\nCoverage described guidance as conservative [EC:1].\nTogether these suggest supply is the constraint [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
@@ -99,7 +102,8 @@
       "external_urls": [
         "https://reuters.com/a"
       ]
-    }
+    },
+    "answered_at": "2026-08-03T12:00:00Z"
   },
   "bld-002": {
     "answer": "Reported revenue was $47.5B [IV:ticker_data].\nCoverage described guidance as conservative [EC:1].\nTogether these suggest supply is the constraint [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
@@ -110,7 +114,8 @@
       "external_urls": [
         "https://reuters.com/a"
       ]
-    }
+    },
+    "answered_at": "2026-08-03T12:00:00Z"
   },
   "bld-003": {
     "answer": "Reported revenue was $47.5B [IV:alexxx.era_research.parsed_data].\nCoverage described guidance as conservative [EC:1].\nTogether these suggest supply is the constraint [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
@@ -121,7 +126,8 @@
       "external_urls": [
         "https://reuters.com/a"
       ]
-    }
+    },
+    "answered_at": "2026-08-03T12:00:00Z"
   },
   "bld-004": {
     "answer": "Reported revenue was $47.5B [IV:alexxx.era_research.parsed_data].\nCoverage described guidance as conservative [EC:1].\nTogether these suggest supply is the constraint [INF].\n\n## Sources\n[1] Reuters report - https://reuters.com/a (retrieved 2026-08-03T09:00:00Z)\n",
@@ -132,7 +138,8 @@
       "external_urls": [
         "https://reuters.com/a"
       ]
-    }
+    },
+    "answered_at": "2026-08-03T12:00:00Z"
   },
   "gov-001": {
     "answer": "That request was blocked by policy before any external search was made [OPS].\nI cannot answer it from outside sources [OPS].\n",
@@ -155,7 +162,8 @@
       "external_urls": [
         "https://reuters.com/a"
       ]
-    }
+    },
+    "answered_at": "2026-08-03T12:00:00Z"
   },
   "gov-004": {
     "answer": "The generated Providence document states operating revenue of $18.4B [IV:/Volumes/alexxx/era_research/raw_documents/synthetic/providence_SYNTHETIC_annual-review_2025.pdf#page=2]. Those figures come from a generated reference document rather than a filed financial statement [OPS].\n",

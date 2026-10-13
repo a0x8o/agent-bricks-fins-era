@@ -21,7 +21,7 @@ but has some [known limitations](#known-limitations) for other use cases. Work i
 - **Databricks Agent and Foundation Model Integration**: Direct connection to Databricks Agent serving endpoints and Agent Bricks
 - **Databricks Authentication**: Uses Databricks authentication to identify end users of the chat app and securely manage their conversations.
 - **Persistent Chat History (Optional)**: Leverages Databricks Lakebase (Postgres) for storing conversations, with governance and tight lakehouse integration. Can also run in ephemeral mode without database.
-- **Pro mode (Optional)**: Set `APP_MODE=pro` to unlock a dockable workspace panel alongside the chat — an interactive knowledge graph (Sigma.js over the OntoBricks GraphRAG tables), a data explorer with charts + KPI tiles, and an embedded Genie space + AI/BI dashboard — plus an animated multi-agent "thinking" indicator during long queries. Defaults to `simple` (chat only).
+- **Pro mode (Optional)**: Set `APP_MODE=pro` to unlock a dockable workspace panel alongside the chat — an interactive knowledge graph (Sigma.js over the OntoBricks GraphRAG tables), a data explorer with charts + KPI tiles, and a native market / valuation / agent-ops / library dashboard — plus an animated multi-agent "thinking" indicator during long queries. Defaults to `simple` (chat only).
 
 ### Pro mode configuration
 
@@ -34,6 +34,7 @@ independently gated, so a partially-configured deploy degrades gracefully:
 | `DATABRICKS_WAREHOUSE_ID` | SQL warehouse for the Graph + Data Explorer tabs |
 | `GRAPH_CATALOG` / `GRAPH_SCHEMA` | Location of `graphrag_vertices`, `graphrag_edges`, `ticker_data` |
 | `GENIE_SPACE_ID` / `GENIE_EMBED_URL` | Embedded Genie space (id or explicit published embed URL) |
+| `GENIE_CHAT` | `true` routes chat to the Genie space instead of the serving endpoint (off by default) |
 | `AIBI_DASHBOARD_ID` / `AIBI_EMBED_URL` | Embedded AI/BI dashboard (id or explicit published embed URL) |
 
 New pro-mode API endpoints (server): `GET /api/graph` (node/edge data) and

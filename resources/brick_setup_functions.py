@@ -874,6 +874,14 @@ class AgentBricksManager:
     logger.info(f'Updating MAS {tile_id}')
     return self._patch(f'/api/2.0/multi-agent-supervisors/{tile_id}', payload)
 
+  def mas_find_by_name(self, name: str) -> Optional[str]:
+    """Return the tile_id of the MAS with this (sanitized) name, or None."""
+    target = self.sanitize_name(name)
+    for t in self.list_all_agent_bricks(TileType.MAS):
+      if t.get('name') == target:
+        return t['tile_id']
+    return None
+
   def mas_get(self, tile_id: str) -> Optional[Dict[str, Any]]:
     """Get MAS by tile_id using the MAS-specific endpoint.
 
