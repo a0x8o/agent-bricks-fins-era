@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { PlusIcon } from 'lucide-react';
 
 import { SidebarHistory } from '@/components/sidebar-history';
 import { SidebarUserNav } from '@/components/sidebar-user-nav';
