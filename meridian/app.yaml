@@ -1,0 +1,25 @@
+command:
+  - "uvicorn"
+  - "app.main:app"
+  - "--host"
+  - "0.0.0.0"
+  - "--port"
+  - "$DATABRICKS_APP_PORT"
+
+env:
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: sql-warehouse
+  - name: GENIE_SPACE_ID
+    valueFrom: genie-space
+  - name: UC_CATALOG
+    value: "fins"
+  - name: UC_SCHEMA
+    value: "meridian"
+  - name: AUTH_MODE
+    value: "obo"
+  - name: APP_MODE
+    value: "live"
+  - name: FEATURE_STREAMING
+    value: "true"
+  - name: FEATURE_PERSISTENCE
+    value: "false"
