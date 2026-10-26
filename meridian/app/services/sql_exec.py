@@ -66,23 +66,21 @@ def run_query(
             StatementParameterListItem(name=k, value=str(v)) for k, v in params.items()
         ],
         wait_timeout="50s",
-        format="JSON_ARRAY",
-        disposition="INLINE",
     )
     cols = []
     if resp.manifest and resp.manifest.schema and resp.manifest.schema.columns:
         cols = [
-            Column(name=c.name, type=str(c.type_name or "STRING"))
+            Column(name=c.name, type=_typename(c))
             for c in resp.manifest.schema.columns
         ]
     rows: list[list[Any]] = []
     truncated = False
-    if resp.result and resp.result.data_array:
-        rows = [list(r) for r in resp.result.data_array]
-        truncated = bool(
-            resp.result.next_chunk_index or resp.result.truncated
-        )
-    out = ResultSet(columns=cols, rows=rows, row_count=len(rows), truncated=truncated)
+    row_count = 0
+    if resp.result:
+        rows = [list(r) for r in (resp.result.data_array or [])]
+        truncated = bool(resp.result.next_chunk_index or resp.result.external_links)
+        row_count = resp.result.row_count if resp.result.row_count is not None else len(rows)
+    out = ResultSet(columns=cols, rows=rows, row_count=row_count, truncated=truncated)
     cache.put(ck, out)
     return out, False
 
@@ -93,6 +91,11 @@ def _stable(params: dict[str, Any]) -> str:
 
 
 _SELECT_GUARD = re.compile(r"^\s*(select|with)\b", re.IGNORECASE | re.DOTALL)
+
+
+def _typename(c) -> str:
+    t = getattr(c, "type_name", None)
+    return str(getattr(t, "value", t) or "STRING")
 
 
 def run_readonly_sql(sql: str, identity: Identity) -> ResultSet:
@@ -106,17 +109,16 @@ def run_readonly_sql(sql: str, identity: Identity) -> ResultSet:
         warehouse_id=settings.warehouse_id,
         statement=stripped,
         wait_timeout="50s",
-        format="JSON_ARRAY",
-        disposition="INLINE",
     )
     cols = []
     if resp.manifest and resp.manifest.schema and resp.manifest.schema.columns:
         cols = [
-            Column(name=c.name, type=str(c.type_name or "STRING"))
+            Column(name=c.name, type=_typename(c))
             for c in resp.manifest.schema.columns
         ]
     rows = [list(r) for r in (resp.result.data_array or [])] if resp.result else []
     return ResultSet(
-        columns=cols, rows=rows, row_count=len(rows),
-        truncated=bool(resp.result and resp.result.truncated),
+        columns=cols, rows=rows,
+        row_count=(resp.result.row_count if resp.result and resp.result.row_count is not None else len(rows)),
+        truncated=bool(resp.result and (resp.result.next_chunk_index or resp.result.external_links)),
     )
