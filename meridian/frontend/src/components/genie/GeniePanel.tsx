@@ -11,7 +11,8 @@ import { askGenie, sendFeedback, type GenieMessage } from "../../lib/genie";
 import { useApp } from "../../stores/app";
 import { usePins } from "../../stores/pins";
 import { AnswerChart } from "./AnswerChart";
-import youLogo from "../../assets/you-logo.png";
+import { BrandLogo } from "../ui/BrandLogo";
+import mark20 from "../../assets/brand/youcom-mark-20.png";
 import { ResultTable } from "../tables/ResultTable";
 import { Chip, EmptyState } from "../ui/primitives";
 
@@ -91,7 +92,7 @@ export function GeniePanel() {
       <div className="flex h-9 items-center gap-1.5 border-b border-hairline px-2">
         <Sparkles size={13} className="text-genie" />
         <span className="text-[11px] font-semibold">Genie</span>
-        <img src={youLogo} alt="You.com" title="Live web grounding by You.com" className="ml-auto h-3.5 w-3.5 rounded-[3px] opacity-80" />
+        <span className="ml-auto" title="Live web grounding by You.com"><BrandLogo /></span>
         {ctxSym && (
           <Chip tone="genie" onRemove={() => app.set({ genieContextSymbol: false })}>
             {ctxSym}
