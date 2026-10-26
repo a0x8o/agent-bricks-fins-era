@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Obsidian (dark-first) ─────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --base: #0b0d10;
+  --panel: #12151a;
+  --elevated: #171b21;
+  --hairline: #232830;
+  --fg: #e6e9ee;
+  --fg-2: #9aa3b2;
+  --fg-3: #5c6572;
+  --up: #22c55e;
+  --down: #ef4444;
+  --accent: #3b82f6;
+  --genie: #8b5cf6;
+  --warn: #f59e0b;
+  --chart-grid: #161a20;
+  --axis-text: #5c6572;
+  --pane-active: #3b82f6;
+}
+
+[data-theme="light"] {
+  --base: #f7f8fa;
+  --panel: #ffffff;
+  --elevated: #f0f2f5;
+  --hairline: #dde1e6;
+  --fg: #14181f;
+  --fg-2: #4d5866;
+  --fg-3: #8a94a3;
+  --up: #16a34a;
+  --down: #dc2626;
+  --accent: #2563eb;
+  --genie: #7c3aed;
+  --warn: #d97706;
+  --chart-grid: #e9edf2;
+  --axis-text: #8a94a3;
+  --pane-active: #2563eb;
+}
+
+/* color-blind-safe alternate (blue/orange) */
+[data-palette="cb"] {
+  --up: #0ea5e9;
+  --down: #f97316;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline) transparent;
+}
+
+body {
+  background: var(--base);
+  color: var(--fg);
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.num {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--panel) 25%, var(--elevated) 50%, var(--panel) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 4px;
+}
+
+@keyframes flash-up { from { color: var(--up); } to { color: inherit; } }
+@keyframes flash-down { from { color: var(--down); } to { color: inherit; } }
+.flash-up { animation: flash-up 0.4s ease-out; }
+.flash-down { animation: flash-down 0.4s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001s !important;
+    transition-duration: 0.001s !important;
+  }
+}

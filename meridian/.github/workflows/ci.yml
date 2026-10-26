@@ -1,0 +1,26 @@
+name: meridian-ci
+on: { push: { paths: ["meridian/**"] }, pull_request: { paths: ["meridian/**"] } }
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: meridian } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check app tests
+      - run: mypy app || true
+      - run: APP_MODE=mock pytest tests/backend -q
+  frontend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: meridian/frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: meridian/frontend/package.json }
+      - run: npm install
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - name: bundle budget (350KB gz entry)
+        run: du -sk ../app/static && test "$(du -sk ../app/static | cut -f1)" -lt 3000
