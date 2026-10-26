@@ -1,0 +1,21 @@
+# not needed at runtime — keep the upload small
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+frontend/
+tests/
+docs/
+scripts/
+*.md
+!NOTICE
+package.json
+package-lock.json
+pyproject.toml
+requirements-dev.txt
+.github/
+databricks.yml
+.DS_Store
+*.log

@@ -1,0 +1,13 @@
+app/static/
+frontend/node_modules/
+frontend/dist/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+docs/screenshots/
+playwright-report/
+test-results/
