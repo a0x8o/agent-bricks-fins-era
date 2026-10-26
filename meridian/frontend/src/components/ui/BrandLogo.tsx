@@ -17,9 +17,8 @@ export function BrandLogo({ variant = "full" }: { variant?: "full" | "mark" }) {
     );
   }
   const src = theme === "dark" ? onDark1x : onLight1x;
-  const srcSet =
-    theme === "dark"
-      ? `${onDark1x} 1x, ${onDark2x} 2x, ${onDark3x} 3x`
-      : `${onLight1x} 1x, ${onLight2x} 2x, ${onLight3x} 3x`;
+  const srcSet = theme === "dark"
+    ? `${onDark1x} 1x, ${onDark2x} 2x, ${onDark3x} 3x`
+    : `${onLight1x} 1x, ${onLight2x} 2x, ${onLight3x} 3x`;
   return <img src={src} srcSet={srcSet} width={77} height={20} alt="You.com" className="block" />;
 }
