@@ -43,6 +43,7 @@ TITLE = "Meridian Financial Analyst"
 TABLES = [
     "dim_security", "fact_price_daily", "fact_fundamentals_quarterly",
     "fact_portfolio_positions", "fact_news_events",
+    "fact_sec_filings", "fact_sec_financials", "fact_real_news",
     "v_returns", "v_valuation", "v_portfolio_performance",
 ]
 
@@ -56,6 +57,15 @@ Conventions:
   and v_portfolio_performance (weights/P&L) over recomputing from facts.
 - Benchmarks: SPY (broad market), QQQ (Nasdaq-100 proxy).
 - Portfolio questions refer to portfolio_id 'demo-core' unless stated otherwise.
+- Price/return/portfolio tables and v_* views are SYNTHETIC demo data.
+- REAL public data lives in fact_sec_filings (SEC EDGAR filing index),
+  fact_sec_financials (real XBRL fundamentals from SEC companyfacts — authoritative
+  for fundamentals questions), and fact_real_news (live headlines from You.com).
+- For filings, real fundamentals, or current-news questions prefer the fact_sec_*
+  and fact_real_news tables over the synthetic fact_* tables, and cite document_url
+  or url so the answer links the source.
+- fact_sec_financials.value is in `unit` (USD | USD/shares | shares); filter by
+  label or concept and fiscal_period (Q1-Q4/FY); newest is max(period_end).
 """
 
 EXAMPLES = [
@@ -69,6 +79,9 @@ EXAMPLES = [
     ("Portfolio weights", "SELECT symbol, weight_pct FROM fins.meridian.v_portfolio_performance WHERE portfolio_id = 'demo-core' ORDER BY weight_pct DESC"),
     ("Largest healthcare positions by market cap", "SELECT symbol, name, market_cap FROM fins.meridian.dim_security WHERE sector = 'Healthcare' ORDER BY market_cap DESC LIMIT 10"),
     ("Did NVDA beat SPY over 6 months?", "SELECT symbol, ret_6m FROM fins.meridian.v_returns WHERE symbol IN ('NVDA','SPY')"),
+    ("When did AAPL last file a 10-Q and where is it?", "SELECT form_type, filing_date, report_date, document_url FROM fins.meridian.fact_sec_filings WHERE symbol = 'AAPL' AND form_type = '10-Q' ORDER BY filing_date DESC LIMIT 3"),
+    ("NVDA real revenue last 4 quarters (SEC filings)", "SELECT fiscal_period, period_end, value / 1e9 AS revenue_billions_usd FROM fins.meridian.fact_sec_financials WHERE symbol = 'NVDA' AND label = 'Total revenue' AND fiscal_period LIKE 'Q%' ORDER BY period_end DESC LIMIT 4"),
+    ("What's the latest real news on LLY?", "SELECT headline, source, page_age, url FROM fins.meridian.fact_real_news WHERE symbol = 'LLY' ORDER BY fetched_ts DESC LIMIT 5"),
 ]
 
 
@@ -78,18 +91,20 @@ def main() -> None:
     headers = cfg.authenticate()
     headers["Content-Type"] = "application/json"
 
+    import uuid
+    hexids = sorted(uuid.uuid5(uuid.NAMESPACE_URL, f"meridian-genie-{i}").hex for i in range(len(EXAMPLES) + 10))
     serialized = {
         "version": 1,
-        "config": {"sample_questions": [{"id": f"q{i}", "question": [q]} for i, (q, _) in enumerate(EXAMPLES[:10], 1)]},
+        "config": {"sample_questions": [{"id": hexids[i], "question": [q]} for i, (q, _) in enumerate(EXAMPLES[:10])]},
         "data_sources": {
             "tables": [
                 {"identifier": f"{CATALOG}.{SCHEMA}.{t}"} for t in sorted(TABLES)
             ]
         },
         "instructions": {
-            "text_instructions": [{"id": "ti1", "content": [INSTRUCTIONS]}],
+            "text_instructions": [{"id": uuid.uuid5(uuid.NAMESPACE_URL, "meridian-genie-ti").hex, "content": [INSTRUCTIONS]}],
             "example_question_sqls": [
-                {"id": f"eq{i}", "question": [q], "sql": [s]} for i, (q, s) in enumerate(EXAMPLES, 1)
+                {"id": hexids[10 + i], "question": [q], "sql": [s]} for i, (q, s) in enumerate(EXAMPLES)
             ],
         },
     }
@@ -107,7 +122,7 @@ def main() -> None:
         if existing:
             sid = existing["space_id"]
             resp = c.patch(f"{host}/api/2.0/genie/spaces/{sid}", json=payload)
-            print(f"updated {sid}: {resp.status_code}")
+            print(f"updated {sid}: {resp.status_code} {resp.text[:400] if resp.status_code >= 400 else ''}")
         else:
             resp = c.post(f"{host}/api/2.0/genie/spaces", json=payload)
             resp.raise_for_status()
