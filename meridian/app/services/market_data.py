@@ -57,7 +57,7 @@ def get_bars(symbol: str, range_: str, interval: str, until: str | None,
         return bars, as_of, False
     rs, hit = run_query(
         "prices",
-        {"symbol": symbol, "interval": interval,
+        {"symbol": symbol,
          "start": str(_range_start(range_).date()) if _range_start(range_) is not None else "1900-01-01",
          "until": until or "9999-12-31"},
         identity,
