@@ -7,7 +7,7 @@ variables:
     default: "00a19186c27fa1de"
   genie_space_id:
     description: Genie space bound to the app (set after scripts/create_genie_space.py runs)
-    default: ""
+    default: "01f1d07ccf61185bbcc0f5cda95441c6"
 
 targets:
   dev:
@@ -34,11 +34,8 @@ resources:
         - sql
         - dashboards.genie
       resources:
-        - name: sql-warehouse
-          sql_warehouse:
-            id: ${var.warehouse_id}
-            permission: CAN_USE
         - name: genie-space
           genie_space:
+            name: ${var.genie_space_id}
             space_id: ${var.genie_space_id}
             permission: CAN_RUN

@@ -16,6 +16,26 @@ import sys
 import httpx
 from databricks.sdk.core import Config
 
+
+def _cfg():
+    """Resolve auth via the CLI profile (avoids dual-profile token ambiguity)."""
+    import json as _json
+    import subprocess
+    
+    profile = os.getenv("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
+    out = subprocess.run(
+        ["databricks", "auth", "token", "--profile", profile],
+        capture_output=True, text=True, check=True,
+    )
+    tok = _json.loads(out.stdout)
+    desc = subprocess.run(
+        ["databricks", "auth", "describe", "--profile", profile, "-o", "json"],
+        capture_output=True, text=True, check=True,
+    )
+    host = _json.loads(desc.stdout)["details"]["host"]
+    return Config(host=host, token=tok["access_token"])
+
+
 CATALOG = os.getenv("UC_CATALOG", "fins")
 SCHEMA = os.getenv("UC_SCHEMA", "meridian")
 WAREHOUSE = os.getenv("DATABRICKS_WAREHOUSE_ID", "00a19186c27fa1de")
@@ -53,7 +73,7 @@ EXAMPLES = [
 
 
 def main() -> None:
-    cfg = Config(profile=os.getenv("DATABRICKS_CONFIG_PROFILE", "DEFAULT"))
+    cfg = _cfg()
     host = cfg.host.rstrip("/")
     headers = cfg.authenticate()
     headers["Content-Type"] = "application/json"
@@ -63,8 +83,7 @@ def main() -> None:
         "config": {"sample_questions": [{"id": f"q{i}", "question": [q]} for i, (q, _) in enumerate(EXAMPLES[:10], 1)]},
         "data_sources": {
             "tables": [
-                {"identifier": f"{CATALOG}.{SCHEMA}.{t}", "description": {}, "column_configs": []}
-                for t in TABLES
+                {"identifier": f"{CATALOG}.{SCHEMA}.{t}"} for t in sorted(TABLES)
             ]
         },
         "instructions": {
