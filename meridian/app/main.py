@@ -72,6 +72,7 @@ async def validation_exc(request: Request, exc: RequestValidationError):
 
 @app.exception_handler(ValueError)
 async def value_exc(request: Request, exc: ValueError):
+    log.error(json.dumps({"path": request.url.path, "error": repr(exc)}))
     return JSONResponse(status_code=400, content={
         "error": {"code": "BAD_REQUEST", "message": str(exc), "request_id": "", "retryable": False}})
 

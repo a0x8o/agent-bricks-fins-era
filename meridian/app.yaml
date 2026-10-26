@@ -7,6 +7,8 @@ command:
   - "$DATABRICKS_APP_PORT"
 
 env:
+  - name: DATABRICKS_HOST
+    value: "https://dbc-8700f68c-68da.cloud.databricks.com"  # runtime injection is not guaranteed; explicit is safe (config, not secret)
   - name: DATABRICKS_WAREHOUSE_ID
     value: "00a19186c27fa1de"  # shared 'demo' warehouse — OBO queries run as user, so no bound resource needed (deployer lacks MANAGE on it)
   - name: GENIE_SPACE_ID
