@@ -8,7 +8,7 @@ command:
 
 env:
   - name: DATABRICKS_WAREHOUSE_ID
-    valueFrom: sql-warehouse
+    value: "00a19186c27fa1de"  # shared 'demo' warehouse — OBO queries run as user, so no bound resource needed (deployer lacks MANAGE on it)
   - name: GENIE_SPACE_ID
     valueFrom: genie-space
   - name: UC_CATALOG

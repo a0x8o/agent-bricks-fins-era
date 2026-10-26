@@ -77,33 +77,42 @@ DDL = {
 }
 
 VIEWS = {
-    "v_returns": f"""CREATE OR REPLACE VIEW {T}.v_returns COMMENT 'Certified total-return windows per symbol, computed on adj_close. "Latest" = max(trade_date).' AS
-WITH d AS (
-  SELECT symbol, trade_date, adj_close,
-         max(trade_date) OVER () AS d0
-  FROM {T}.fact_price_daily
-),
-px AS (
-  SELECT symbol, trade_date, adj_close, d0,
-         row_number() OVER (PARTITION BY symbol ORDER BY trade_date DESC) rn
-  FROM d
-),
-ref AS (SELECT * FROM px WHERE rn = 1)
-SELECT
-  r.symbol,
-  r.adj_close AS last,
-  (SELECT adj_close FROM px WHERE symbol = r.symbol AND rn = 2) AS prev_close,
-  round((SELECT adj_close FROM px WHERE symbol = r.symbol AND rn = 2) / r.adj_close, 6) AS _inv,
-  r.d0 AS as_of,
-  round((r.adj_close / (SELECT adj_close FROM px WHERE symbol = r.symbol AND rn = 2) - 1) * 100, 2) AS ret_1d,
-  round((r.adj_close / (SELECT max(adj_close) FROM px p2 WHERE p2.symbol = r.symbol AND p2.trade_date <= date_sub(r.d0, 7)) - 1) * 100, 2) AS ret_1w,
-  round((r.adj_close / (SELECT max(adj_close) FROM px p2 WHERE p2.symbol = r.symbol AND p2.trade_date <= date_sub(r.d0, 31)) - 1) * 100, 2) AS ret_1m,
-  round((r.adj_close / (SELECT max(adj_close) FROM px p2 WHERE p2.symbol = r.symbol AND p2.trade_date <= date_sub(r.d0, 93)) - 1) * 100, 2) AS ret_3m,
-  round((r.adj_close / (SELECT max(adj_close) FROM px p2 WHERE p2.symbol = r.symbol AND p2.trade_date <= date_sub(r.d0, 186)) - 1) * 100, 2) AS ret_6m,
-  round((r.adj_close / (SELECT max(adj_close) FROM px p2 WHERE p2.symbol = r.symbol AND p2.trade_date <= date_trunc('YEAR', r.d0)) - 1) * 100, 2) AS ret_ytd,
-  round((r.adj_close / (SELECT max(adj_close) FROM px p2 WHERE p2.symbol = r.symbol AND p2.trade_date <= date_sub(r.d0, 365)) - 1) * 100, 2) AS ret_1y,
-  round((r.adj_close / (SELECT min(adj_close) FROM px p2 WHERE p2.symbol = r.symbol) - 1) * 100, 2) AS ret_5y
-FROM ref r""",
+    "v_returns": f"""CREATE OR REPLACE VIEW {T}.v_returns COMMENT 'Certified total-return windows per symbol on adj_close. "Latest" = max(trade_date).' AS
+WITH d AS (SELECT symbol, trade_date, adj_close FROM {T}.fact_price_daily),
+ref AS (SELECT symbol, max(trade_date) AS d0 FROM d GROUP BY symbol),
+cut AS (
+  SELECT r.symbol, r.d0,
+    max(CASE WHEN d.trade_date <  r.d0 THEN d.trade_date END) AS td_1d,
+    max(CASE WHEN d.trade_date <= date_sub(r.d0,7)   THEN d.trade_date END) AS td_1w,
+    max(CASE WHEN d.trade_date <= date_sub(r.d0,31)  THEN d.trade_date END) AS td_1m,
+    max(CASE WHEN d.trade_date <= date_sub(r.d0,93)  THEN d.trade_date END) AS td_3m,
+    max(CASE WHEN d.trade_date <= date_sub(r.d0,186) THEN d.trade_date END) AS td_6m,
+    max(CASE WHEN d.trade_date <  date_trunc('YEAR', r.d0) THEN d.trade_date END) AS td_ytd,
+    max(CASE WHEN d.trade_date <= date_sub(r.d0,365) THEN d.trade_date END) AS td_1y,
+    min(d.trade_date) AS td_5y
+  FROM ref r JOIN d ON d.symbol = r.symbol
+  GROUP BY r.symbol, r.d0
+)
+SELECT r.symbol,
+  l.adj_close AS last, p.adj_close AS prev_close, r.d0 AS as_of,
+  round((l.adj_close / p.adj_close - 1) * 100, 2) AS ret_1d,
+  round((l.adj_close / w.adj_close - 1) * 100, 2) AS ret_1w,
+  round((l.adj_close / m.adj_close - 1) * 100, 2) AS ret_1m,
+  round((l.adj_close / q.adj_close - 1) * 100, 2) AS ret_3m,
+  round((l.adj_close / s.adj_close - 1) * 100, 2) AS ret_6m,
+  round((l.adj_close / y.adj_close - 1) * 100, 2) AS ret_ytd,
+  round((l.adj_close / o.adj_close - 1) * 100, 2) AS ret_1y,
+  round((l.adj_close / f.adj_close - 1) * 100, 2) AS ret_5y
+FROM cut r
+JOIN d l ON l.symbol = r.symbol AND l.trade_date = r.d0
+LEFT JOIN d p ON p.symbol = r.symbol AND p.trade_date = r.td_1d
+LEFT JOIN d w ON w.symbol = r.symbol AND w.trade_date = r.td_1w
+LEFT JOIN d m ON m.symbol = r.symbol AND m.trade_date = r.td_1m
+LEFT JOIN d q ON q.symbol = r.symbol AND q.trade_date = r.td_3m
+LEFT JOIN d s ON s.symbol = r.symbol AND s.trade_date = r.td_6m
+LEFT JOIN d y ON y.symbol = r.symbol AND y.trade_date = r.td_ytd
+LEFT JOIN d o ON o.symbol = r.symbol AND o.trade_date = r.td_1y
+LEFT JOIN d f ON f.symbol = r.symbol AND f.trade_date = r.td_5y""",
     "v_valuation": f"""CREATE OR REPLACE VIEW {T}.v_valuation COMMENT 'Certified valuation multiples vs latest price' AS
 WITH f AS (
   SELECT symbol, period_end, revenue, net_income, eps_diluted, free_cash_flow, shares_out,
@@ -125,11 +134,31 @@ JOIN {T}.v_returns r ON r.symbol = p.symbol""",
 }
 
 
-def main() -> None:
-    from databricks import sql
+def _cfg():
+    """Resolve auth via the CLI profile (avoids dual-profile token ambiguity)."""
+    import json as _json
+    import subprocess
+
+    profile = os.getenv("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
+    out = subprocess.run(
+        ["databricks", "auth", "token", "--profile", profile],
+        capture_output=True, text=True, check=True,
+    )
+    tok = _json.loads(out.stdout)
+    desc = subprocess.run(
+        ["databricks", "auth", "describe", "--profile", profile, "-o", "json"],
+        capture_output=True, text=True, check=True,
+    )
+    host = _json.loads(desc.stdout)["details"]["host"]
     from databricks.sdk.core import Config
 
-    cfg = Config(profile=os.getenv("DATABRICKS_CONFIG_PROFILE", "DEFAULT"))
+    return Config(host=host, token=tok["access_token"])
+
+
+def main() -> None:
+    from databricks import sql
+
+    cfg = _cfg()
     conn = sql.connect(
         server_hostname=cfg.host.replace("https://", ""),
         http_path=f"/sql/1.0/warehouses/{WAREHOUSE}",
