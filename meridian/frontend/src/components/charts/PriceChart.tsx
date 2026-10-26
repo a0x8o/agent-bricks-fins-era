@@ -21,7 +21,7 @@ import {
 } from "lightweight-charts";
 import { useEffect, useMemo, useRef } from "react";
 import type { Bar, PricesResponse } from "../../hooks/usePrices";
-import { useEvents, useIndicator, usePrices } from "../../hooks/usePrices";
+import { useEvents, usePrices, type IndicatorPoint } from "../../hooks/usePrices";
 import { api } from "../../lib/api";
 import { chartOptions, palette, gradientArea, SERIES_COLORS, RIBBON_COLORS } from "./chartTheme";
 import { BandFillPrimitive } from "./primitives";
@@ -104,15 +104,24 @@ export function PriceChart(props: Props) {
     });
   }, [data, props.adjusted]);
 
-  // indicator queries (overlays + sub-panes share the hook)
-  const overlayData = props.overlays.map((o) =>
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- stable order
-    useIndicator(props.symbol, o.type, o.params, props.range, props.replayUntil),
-  );
-  const subData = props.subPanes.map((s) =>
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- stable order
-    useIndicator(props.symbol, s.type, s.params, props.range, props.replayUntil),
-  );
+  // indicator queries — one useQueries so the hook count stays stable when
+  // overlays/sub-panes are added or removed (fixes stale render until reload)
+  const indSpecs = [...props.overlays, ...props.subPanes];
+  const indResults = useQueries({
+    queries: indSpecs.map((ind) => ({
+      queryKey: ["indicator", props.symbol, ind.type, ind.params, props.range, props.replayUntil ?? null],
+      queryFn: () =>
+        api<{ points: IndicatorPoint[] }>(
+          `/indicators/${props.symbol}?type=${ind.type}&range=${props.range}&params=${encodeURIComponent(
+            JSON.stringify(ind.params),
+          )}${props.replayUntil ? `&until=${props.replayUntil}` : ""}`,
+        ),
+      enabled: !!props.symbol && !!ind.type,
+      staleTime: 60_000,
+    })),
+  });
+  const overlayData = indResults.slice(0, props.overlays.length);
+  const subData = indResults.slice(props.overlays.length);
 
   useEffect(() => {
     if (!ref.current) return;
