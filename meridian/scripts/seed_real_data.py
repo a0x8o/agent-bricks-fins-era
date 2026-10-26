@@ -187,14 +187,16 @@ def _you_news(symbol: str, name: str) -> list[dict]:
     import os
     key = os.environ.get("YOU_API_KEY")
     if key:
-        q = f"{name} ({symbol}) latest financial news"
+        # key plan serves web-only results — fetch extra and keep article URLs,
+        # not quote/aggregator pages
+        q = f"{name} stock news earnings"
         url = ("https://ydc-index.io/v1/search?query="
-               + urllib.request.quote(q) + "&count=6&freshness=month")
+               + urllib.request.quote(q) + "&count=12&freshness=month")
         req = urllib.request.Request(url, headers={"X-API-Key": key})
         data = _json.loads(urllib.request.urlopen(req, timeout=30).read())
         res = data.get("results", {})
-        news = res.get("news", []) or res.get("web", [])[:4]
-        return news[:6]
+        items = (res.get("news") or []) + (res.get("web") or [])
+        return [it for it in items if not _is_quote_page(it.get("url", ""))][:6]
     return _you_news_mcp(symbol, name)
 
 
@@ -246,6 +248,23 @@ def _you_news_mcp(symbol: str, name: str) -> list[dict]:
         return news[:6]
     finally:
         conn.close()
+
+
+_QUOTE_PATS = re.compile(
+    r"/(quote|market(stock)?s?/stocks|markets/stocks|us/en/stocks|price|forecast)/?"
+    r"|finance\.yahoo\.com/(quote|markets)/"
+    r"|cnn\.com/markets/stocks"
+    r"|cnbc\.com/quotes"
+    r"|google\.com/finance"
+    r"|robinhood\.com/us/en/stocks"
+    r"|bloomberg\.com/quote"
+    r"|stocktwits|slickcharts|tickernerd|coinmarketcap|coingecko|coinbase\.com/(price|exchange)"
+    r"|investor\.(apple|.*)\.com/?$",
+    re.I)
+
+
+def _is_quote_page(url: str) -> bool:
+    return bool(_QUOTE_PATS.search(url or ""))
 
 
 def _domain(url: str) -> str:
