@@ -137,7 +137,7 @@ export function GeniePanel() {
               </div>
             </div>
             {en.msg ? (
-              <AnswerCard entry={en} onPin={() =>
+              <AnswerCard entry={en} onFollowUp={(q) => ask(q)} onPin={() =>
                 pins.pin({
                   title: en.question.slice(0, 60), question: en.question,
                   sql: en.msg!.sql, chartSpec: en.msg!.chart_specs?.[0] ?? null,
@@ -235,11 +235,12 @@ function StatusTimeline({ steps }: { steps: { label: string; at: number }[] }) {
   );
 }
 
-function AnswerCard({ entry, onPin, onRetry, onFeedback }: {
+function AnswerCard({ entry, onPin, onRetry, onFeedback, onFollowUp }: {
   entry: Entry;
   onPin: () => void;
   onRetry: () => void;
   onFeedback: (r: 1 | -1) => void;
+  onFollowUp: (q: string) => void;
 }) {
   const msg = entry.msg!;
   const [showSql, setShowSql] = useState(false);
@@ -322,7 +323,13 @@ function AnswerCard({ entry, onPin, onRetry, onFeedback }: {
       {msg.suggested.length > 0 && (
         <div className="flex flex-wrap gap-1 border-t border-hairline px-2.5 py-1.5">
           {msg.suggested.slice(0, 3).map((s) => (
-            <span key={s} className="rounded-full border border-hairline px-2 py-0.5 text-[9px] text-fg-3">{s}</span>
+            <button
+              key={s}
+              onClick={() => onFollowUp(s)}
+              className="rounded-full border border-hairline px-2 py-0.5 text-[9px] text-fg-3 transition-colors hover:border-genie hover:bg-genie/10 hover:text-genie"
+            >
+              {s}
+            </button>
           ))}
         </div>
       )}
