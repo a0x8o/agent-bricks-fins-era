@@ -170,7 +170,7 @@ export function GeniePanel() {
 
       {lastSuggested.length > 0 && (
         <div className="flex flex-wrap items-center gap-1 border-t border-hairline px-2 py-1.5">
-          <img src={youLogo} alt="" title="Suggested by Genie · web by You.com" className="h-3 w-3 rounded-[2px] opacity-70" />
+          <img src={mark20} alt="You.com" title="Suggested by Genie · web by You.com" className="h-3.5 w-3.5 opacity-90" />
           {lastSuggested.slice(0, 4).map((s) => (
             <button
               key={s}
