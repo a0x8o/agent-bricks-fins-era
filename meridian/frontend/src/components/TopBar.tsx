@@ -1,10 +1,11 @@
 import {
   Bell, Camera, ChevronDown, LayoutGrid, Moon, Play, Plus, RotateCcw, RotateCw,
-  Search, Settings, Sun, TrendingUp, User,
+  Search, Settings, Sun, User,
 } from "lucide-react";
 import { useState } from "react";
 import type { Me } from "../lib/api";
 import { useApp } from "../stores/app";
+import { BrandLogo } from "./ui/BrandLogo";
 
 const CHART_TYPES = [
   { id: "candles", label: "Candles" },
@@ -44,9 +45,9 @@ export function TopBar({ me, warehouseState }: { me?: Me; warehouseState?: strin
 
   return (
     <header className="flex h-11 items-center gap-1 border-b border-hairline bg-panel px-2">
-      <div className="mr-2 flex items-center gap-1.5">
-        <TrendingUp size={16} className="text-accent" />
-        <span className="text-[13px] font-semibold tracking-tight">Meridian</span>
+      <div className="mr-2 flex items-center" aria-label="You.com home">
+        <span className="hidden min-[640px]:block"><BrandLogo /></span>
+        <span className="min-[640px]:hidden"><BrandLogo variant="mark" /></span>
       </div>
 
       <button
