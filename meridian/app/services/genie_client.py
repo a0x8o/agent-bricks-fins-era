@@ -104,11 +104,15 @@ def extract_answer(msg: dict) -> dict[str, Any]:
             sql = att["query"].get("query")
             description = att["query"].get("description")
             attachment_id = att.get("attachment_id") or att.get("id")
-            suggested = att.get("suggested_questions") or suggested
         if att.get("text"):
             text = att["text"].get("content")
         if att.get("suggested_questions"):
-            suggested = att["suggested_questions"]
+            sq = att["suggested_questions"]
+            # Genie returns {"questions": [...]} on some paths, a plain list on others
+            if isinstance(sq, dict):
+                sq = sq.get("questions") or []
+            if isinstance(sq, list):
+                suggested = [str(q) for q in sq]
     return {
         "text": text,
         "sql": sql,

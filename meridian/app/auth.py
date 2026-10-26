@@ -54,6 +54,6 @@ def user_workspace_client(identity: Identity):
 
     settings = get_settings()
     if identity.mode == "obo" and identity.token:
-        cfg = Config(host=settings.host, token=identity.token)
+        cfg = Config(host=settings.host, token=identity.token, auth_type="pat")
         return WorkspaceClient(config=cfg)
     return WorkspaceClient()
