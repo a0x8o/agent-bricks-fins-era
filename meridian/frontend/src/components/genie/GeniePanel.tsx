@@ -37,6 +37,7 @@ export function GeniePanel() {
   const pins = usePins();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [convId, setConvId] = useState<string | null>(null);
+  const [lastSuggested, setLastSuggested] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [running, setRunning] = useState(false);
   const abort = useRef<AbortController | null>(null);
@@ -60,6 +61,7 @@ export function GeniePanel() {
     try {
       const msg = await askGenie(question, ctxSym, asOf, convId ?? undefined);
       setConvId(msg.conversation_id);
+      if (msg.suggested.length) setLastSuggested(msg.suggested);
       setEntries((e) =>
         e.map((en) =>
           en.id === id
@@ -97,7 +99,7 @@ export function GeniePanel() {
         <div className="flex-1" />
         <button
           className="rounded px-1.5 py-0.5 text-[10px] text-fg-3 hover:bg-elevated hover:text-fg"
-          onClick={() => { setEntries([]); setConvId(null); }}
+          onClick={() => { setEntries([]); setConvId(null); setLastSuggested([]); }}
           title="New chat"
         >
           New chat
@@ -164,6 +166,19 @@ export function GeniePanel() {
         <div ref={bottom} />
       </div>
 
+      {lastSuggested.length > 0 && (
+        <div className="flex flex-wrap gap-1 border-t border-hairline px-2 py-1.5">
+          {lastSuggested.slice(0, 4).map((s) => (
+            <button
+              key={s}
+              onClick={() => ask(s)}
+              className="rounded-full border border-genie/30 bg-genie/5 px-2 py-0.5 text-[9px] text-genie/90 transition-colors hover:border-genie hover:bg-genie/15 hover:text-genie"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
       {/* composer */}
       <div className="border-t border-hairline p-2">
         <div className="rounded-md border border-hairline bg-elevated focus-within:border-genie">
