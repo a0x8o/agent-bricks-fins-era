@@ -188,7 +188,7 @@ def _you_news(symbol: str, name: str) -> list[dict]:
     key = os.environ.get("YOU_API_KEY")
     if key:
         q = f"{name} ({symbol}) latest financial news"
-        url = ("https://api.ydc-index.io/v1/search?query="
+        url = ("https://ydc-index.io/v1/search?query="
                + urllib.request.quote(q) + "&count=6&freshness=month")
         req = urllib.request.Request(url, headers={"X-API-Key": key})
         data = _json.loads(urllib.request.urlopen(req, timeout=30).read())
